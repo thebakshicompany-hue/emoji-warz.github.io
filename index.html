@@ -2,13 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Emoji Warz ⚔️</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
-    <!-- PocketBase SDK -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pocketbase/0.21.1/pocketbase.umd.js"></script>
 </head>
 <body>
@@ -19,12 +18,9 @@
             <div class="login-panel glass-panel">
                 <h1 class="logo temp-logo">WEBAPPZO</h1>
                 <p class="subtitle" style="margin-bottom: 20px;">Login to Play Emoji Warz</p>
-                
                 <input type="email" id="login-email" class="neon-input" placeholder="Email Address">
                 <input type="password" id="login-pass" class="neon-input" placeholder="Password">
-                
                 <p id="login-error" class="error-msg hidden">Invalid credentials</p>
-                
                 <button id="login-btn" class="glow-btn small-btn mt-20" style="width: 100%;">LOGIN</button>
                 <button id="go-to-register" class="link-btn mt-20">Need an account? Sign Up</button>
             </div>
@@ -35,14 +31,11 @@
             <div class="login-panel glass-panel">
                 <h1 class="logo temp-logo">CREATE ACCOUNT</h1>
                 <p class="subtitle" style="margin-bottom: 20px;">Join the Emoji Warz</p>
-                
                 <input type="email" id="reg-email" class="neon-input" placeholder="Email Address">
                 <input type="password" id="reg-pass" class="neon-input" placeholder="Password">
                 <input type="password" id="reg-pass-confirm" class="neon-input" placeholder="Confirm Password">
-                
                 <p id="reg-error" class="error-msg hidden">Passwords do not match</p>
                 <p id="reg-success" class="success-msg hidden">Account created! Logging in...</p>
-                
                 <button id="register-btn" class="glow-btn small-btn mt-20" style="width: 100%;">SIGN UP</button>
                 <button id="go-to-login" class="link-btn mt-20">Already have an account? Login</button>
             </div>
@@ -52,9 +45,10 @@
         <div id="start-screen" class="screen hidden">
             <h1 class="logo">EMOJI WARZ</h1>
             <p class="subtitle">Beat the Level 100 Boss!</p>
-            <div style="display: flex; gap: 15px;">
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;">
                 <button id="start-btn" class="glow-btn">NEW GAME</button>
-                <button id="load-btn" class="glow-btn" style="background: linear-gradient(45deg, #00f0ff, #00ff88);">LOAD SAVE</button>
+                <button id="load-btn" class="glow-btn" style="background: linear-gradient(45deg, #00f0ff, #00ff88); color: black;">LOAD SAVE</button>
+                <button id="marketplace-btn-start" class="glow-btn" style="background: linear-gradient(45deg, #ffaa00, #ff5500);">MARKETPLACE</button>
             </div>
             <p id="load-error" class="error-msg hidden mt-20">No save file found</p>
         </div>
@@ -67,39 +61,75 @@
             </div>
         </div>
 
+        <!-- Marketplace Screen -->
+        <div id="marketplace-screen" class="screen hidden overflow-scroll-screen">
+            <button id="close-marketplace-btn" class="glow-btn small-btn" style="position: absolute; top: 20px; left: 20px; background: #333; z-index: 100;">BACK</button>
+            <h2 class="logo" style="margin-top: 60px; font-size: 3rem;">MARKETPLACE</h2>
+            <div class="stats-panel glass-panel mb-20">
+                <div class="stat-row">
+                    <span class="stat-icon">💎</span>
+                    <span id="market-points-display" class="stat-value points-glow">0</span>
+                </div>
+            </div>
+            <div class="marketplace-categories">
+                <div class="market-section glass-panel">
+                    <h3 class="subtitle text-center" style="margin-bottom: 20px;">HERO SKINS</h3>
+                    <div id="skins-grid" class="market-grid"></div>
+                </div>
+                <div class="market-section glass-panel">
+                    <h3 class="subtitle text-center" style="margin-bottom: 20px;">AURAS</h3>
+                    <div id="auras-grid" class="market-grid"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- Character Select Screen -->
-        <div id="char-select-screen" class="screen hidden">
-            <h2 class="logo char-title">CHOOSE YOUR HERO</h2>
+        <div id="char-select-screen" class="screen hidden overflow-scroll-screen">
+            <h2 class="logo char-title" style="margin-top: 40px;">CHOOSE YOUR HERO</h2>
             <div class="char-cards">
-                <!-- Balanced -->
                 <div class="char-card" data-hero="balanced">
-                    <div class="char-emoji">😎</div>
+                    <div class="char-emoji">⚔️</div>
                     <h3 class="char-name">Balanced</h3>
                     <ul class="char-stats">
-                        <li>HP: 100</li>
-                        <li>Damage: 10</li>
-                        <li>Attack Speed: Normal</li>
+                        <li>HP: 100 | DMG: 10</li>
+                        <li>Speed: Normal | Range: Mid</li>
+                        <li class="text-yellow">🌀 Whirlwind AoE</li>
                     </ul>
                 </div>
-                <!-- Tank -->
                 <div class="char-card" data-hero="tank">
                     <div class="char-emoji">🛡️</div>
                     <h3 class="char-name">Tank</h3>
                     <ul class="char-stats">
-                        <li>HP: <span class="text-green">250</span></li>
-                        <li>Damage: 12</li>
-                        <li>Attack Speed: <span class="text-red">Slow</span></li>
+                        <li>HP: <span class="text-green">250</span> | DMG: 12</li>
+                        <li>Speed: <span class="text-red">Slow</span> | Range: Short</li>
+                        <li class="text-yellow">🛡️ Fortify Shield</li>
                     </ul>
                 </div>
-                <!-- Assassin -->
                 <div class="char-card" data-hero="assassin">
-                    <div class="char-emoji">🥷</div>
+                    <div class="char-emoji">🗡️</div>
                     <h3 class="char-name">Assassin</h3>
                     <ul class="char-stats">
-                        <li>HP: <span class="text-red">60</span></li>
-                        <li>Damage: <span class="text-green">15</span></li>
-                        <li>Attack Speed: <span class="text-green">Fast</span></li>
-                        <li class="text-yellow">High Crit Rate</li>
+                        <li>HP: <span class="text-red">60</span> | DMG: <span class="text-green">15</span></li>
+                        <li>Speed: <span class="text-green">Fast</span> | Crit: High</li>
+                        <li class="text-yellow">👤 Shadow Strike</li>
+                    </ul>
+                </div>
+                <div class="char-card" data-hero="mage">
+                    <div class="char-emoji">🧙</div>
+                    <h3 class="char-name">Mage</h3>
+                    <ul class="char-stats">
+                        <li>HP: 80 | DMG: <span class="text-green">25</span></li>
+                        <li>Speed: Mid | Range: <span class="text-green">Long</span></li>
+                        <li class="text-yellow">☄️ Meteor Strike</li>
+                    </ul>
+                </div>
+                <div class="char-card" data-hero="archer">
+                    <div class="char-emoji">🏹</div>
+                    <h3 class="char-name">Archer</h3>
+                    <ul class="char-stats">
+                        <li>HP: 90 | DMG: 18</li>
+                        <li>Speed: Fast | Range: <span class="text-green">Max</span></li>
+                        <li class="text-yellow">🌧️ Arrow Rain</li>
                     </ul>
                 </div>
             </div>
@@ -109,86 +139,113 @@
         <div id="game-ui" class="screen hidden">
             <!-- Top HUD -->
             <div id="hud">
-                <div class="stats-panel glass-panel">
-                    <div class="stat-row">
-                        <span class="stat-icon">❤️</span>
-                        <div class="health-bar-container">
-                            <div id="health-bar" class="health-bar-fill"></div>
-                        </div>
-                        <span id="health-text" class="stat-value">100/100</span>
+                <div class="hud-top-row">
+                    <div class="hud-left">
+                        <div class="level-indicator">LV <span id="level-display">1</span></div>
+                        <div class="stat-row"><span class="stat-icon">💎</span><span id="points-display" class="stat-value points-glow">0</span></div>
+                    </div>
+                    <div class="hud-center">
+                        <div id="wave-timer" class="wave-timer hidden">NEXT WAVE: <span id="wave-countdown">5</span>s</div>
+                    </div>
+                    <div class="hud-right">
+                        <button id="save-btn" class="hud-btn">💾</button>
+                        <button id="save-quit-btn" class="hud-btn hud-btn-danger">🚪</button>
                     </div>
                 </div>
 
-                <div class="level-panel glass-panel">
-                    <div class="level-indicator">LEVEL <span id="level-display">1</span></div>
-                    <div class="level-bar-container">
-                        <div id="level-progress" class="level-progress-fill"></div>
-                    </div>
+                <!-- Hero HP Bar -->
+                <div id="hero-hp-bar" class="hero-hp-bar">
+                    <div id="hero-hp-fill" class="hero-hp-fill"></div>
+                    <span id="health-text" class="hero-hp-text">100/100</span>
                 </div>
 
-                <div class="currency-panel glass-panel" style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
-                    <div class="stat-row">
-                        <span class="stat-icon">💎</span>
-                        <span id="points-display" class="stat-value points-glow">0</span>
-                    </div>
-                    <button id="save-btn" class="glow-btn small-btn" style="padding: 5px 15px; font-size: 0.8rem; background: linear-gradient(45deg, #000, #333); border: 1px solid var(--accent);">💾 SAVE</button>
+                <!-- Level Progress -->
+                <div class="level-bar-container">
+                    <div id="level-progress" class="level-progress-fill"></div>
                 </div>
 
-                <div class="allies-panel glass-panel" style="margin-top: 10px; text-align: right;">
-                    <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 5px;">RESCUED ALLIES</div>
-                    <div id="rescued-container" style="display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; font-size: 1.5rem;">
-                        <!-- Rescued emojis go here -->
+                <!-- Combo Counter -->
+                <div id="combo-display" class="combo-display hidden">
+                    <span id="combo-count" class="combo-count">0</span>
+                    <span class="combo-label">COMBO</span>
+                    <span id="combo-mult" class="combo-mult">x1</span>
+                </div>
+
+                <!-- Active Buffs -->
+                <div id="active-buffs" class="active-buffs"></div>
+
+                <!-- Rescued Allies & Trades -->
+                <div class="allies-row">
+                    <div id="rescued-container" class="rescued-container"></div>
+                    <div id="trade-panel" class="trade-panel">
+                        <button class="trade-btn" onclick="tradeSystem('points')" title="1 Pet → 500💎">💎<span class="trade-cost">1🐾</span></button>
+                        <button class="trade-btn" onclick="tradeSystem('health')" title="3 Pets → Full Heal">🧪<span class="trade-cost">3🐾</span></button>
+                        <button class="trade-btn" onclick="tradeSystem('maxhealth')" title="5 Pets → +50 Max HP">❤️<span class="trade-cost">5🐾</span></button>
+                        <button class="trade-btn" onclick="tradeSystem('damage')" title="5 Pets → +20% DMG">⚔️<span class="trade-cost">5🐾</span></button>
                     </div>
                 </div>
             </div>
 
             <!-- Game World -->
             <div id="game-world">
-                <!-- Player and Enemies will be injected here via JS -->
+                <div id="battleground-elements"></div>
                 <div id="damage-text-layer"></div>
             </div>
 
+            <!-- Mobile Controls -->
+            <div id="mobile-controls">
+                <!-- Joystick Zone (left) -->
+                <div id="joystick-zone">
+                    <div id="joystick-base" class="joystick-base hidden">
+                        <div id="joystick-thumb" class="joystick-thumb"></div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons (right) -->
+                <div id="action-buttons">
+                    <button id="ability-btn" class="action-btn-touch ability-btn">
+                        <span id="ability-icon">🌀</span>
+                        <div id="ability-cooldown-overlay" class="cooldown-overlay"></div>
+                    </button>
+                    <button id="dodge-btn" class="action-btn-touch dodge-btn">
+                        <span>💨</span>
+                        <div id="dodge-cooldown-overlay" class="cooldown-overlay"></div>
+                    </button>
+                    <button id="attack-btn" class="action-btn-touch attack-btn">⚔️</button>
+                </div>
+            </div>
+
             <!-- Upgrade Store -->
-            <div id="upgrade-store" class="glass-panel">
+            <div id="upgrade-store" class="glass-panel hidden">
+                <button id="close-store-btn" class="store-close-btn">✕</button>
                 <h3 class="store-title">UPGRADES</h3>
                 <div class="upgrade-row">
                     <button id="upg-damage" class="upgrade-btn">
                         <span class="upg-icon">⚔️</span>
-                        <div class="upg-info">
-                            <span class="upg-name">Damage</span>
-                            <span class="upg-level" id="lvl-damage">Lv.1</span>
-                        </div>
-                        <span class="upg-cost"><span id="cost-damage">10</span> 💎</span>
+                        <div class="upg-info"><span class="upg-name">Damage</span><span class="upg-level" id="lvl-damage">Lv.1</span></div>
+                        <span class="upg-cost"><span id="cost-damage">10</span>💎</span>
                     </button>
                     <button id="upg-health" class="upgrade-btn">
                         <span class="upg-icon">❤️</span>
-                        <div class="upg-info">
-                            <span class="upg-name">Max HP</span>
-                            <span class="upg-level" id="lvl-health">Lv.1</span>
-                        </div>
-                        <span class="upg-cost"><span id="cost-health">15</span> 💎</span>
+                        <div class="upg-info"><span class="upg-name">Max HP</span><span class="upg-level" id="lvl-health">Lv.1</span></div>
+                        <span class="upg-cost"><span id="cost-health">15</span>💎</span>
                     </button>
                     <button id="upg-speed" class="upgrade-btn">
                         <span class="upg-icon">⚡</span>
-                        <div class="upg-info">
-                            <span class="upg-name">Atk Speed</span>
-                            <span class="upg-level" id="lvl-speed">Lv.1</span>
-                        </div>
-                        <span class="upg-cost"><span id="cost-speed">20</span> 💎</span>
+                        <div class="upg-info"><span class="upg-name">Atk Spd</span><span class="upg-level" id="lvl-speed">Lv.1</span></div>
+                        <span class="upg-cost"><span id="cost-speed">20</span>💎</span>
                     </button>
                     <button id="btn-heal" class="upgrade-btn action-btn">
                         <span class="upg-icon">🩹</span>
-                        <div class="upg-info">
-                            <span class="upg-name">Heal 50%</span>
-                        </div>
-                        <span class="upg-cost">5 💎</span>
+                        <div class="upg-info"><span class="upg-name">Heal 50%</span></div>
+                        <span class="upg-cost">5💎</span>
                     </button>
                 </div>
             </div>
+
+            <button id="store-toggle-btn" class="store-toggle-btn">🛒</button>
             
-            <div id="boss-warning" class="hidden">
-                 WARNING: BOSS APPROACHING
-            </div>
+            <div id="boss-warning" class="hidden">⚠️ BOSS APPROACHING ⚠️</div>
         </div>
 
         <!-- End Screen -->
@@ -196,15 +253,16 @@
             <div class="skull-icon" id="death-skull">💀</div>
             <h1 id="end-title" class="logo game-over-text">GAME OVER</h1>
             <p id="end-subtitle" class="subtitle">You reached Level <span id="final-level"></span></p>
-            <button id="restart-btn" class="glow-btn mt-20">TRY AGAIN</button>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;" class="mt-20">
+                <button id="restart-btn" class="glow-btn">TRY AGAIN</button>
+                <button id="marketplace-btn-end" class="glow-btn" style="background: linear-gradient(45deg, #ffaa00, #ff5500);">MARKET</button>
+            </div>
         </div>
         
-        <!-- Save Notification Toast -->
-        <div id="save-toast" class="save-toast hidden">
-            Game Saved! 💾
-        </div>
+        <div id="save-toast" class="save-toast hidden">Game Saved! 💾</div>
     </div>
     
     <script src="game.js"></script>
+    <script src="combat.js"></script>
 </body>
 </html>

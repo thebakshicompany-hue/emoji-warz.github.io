@@ -1,581 +1,416 @@
-// Game configuration
-const ENEMY_EMOJIS = ['👿', '👹', '👺', '👻', '👽', '👾', '🤖', '🎃', '🦇', '🕷️', '🦂', '🧛'];
-const BOSS_EMOJIS = ['🐉', '🦖', '🐙', '🦍', '🌋', '🌪️', '💀', '☠️', '👁️'];
-const FINAL_BOSS_EMOJI = '👑😈👑'; // The ultimate boss
-
-// Character Classes
-const HERO_CLASSES = {
-    balanced: {
-        emoji: '😎',
-        maxHp: 100, hp: 100, damage: 10, attackSpeed: 1000, critChance: 0.1, speed: 3
-    },
-    tank: {
-        emoji: '🛡️',
-        maxHp: 250, hp: 250, damage: 12, attackSpeed: 1500, critChance: 0.05, speed: 2
-    },
-    assassin: {
-        emoji: '🥷',
-        maxHp: 60, hp: 60, damage: 15, attackSpeed: 600, critChance: 0.3, speed: 4
-    }
-};
-
-const RESCUED_POOL = ['🐶', '🐱', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🐰', '🐢', '🦖', '🦄', '🐝', '🐙', '🐬', '🦀'];
-
-const STORY_LINES = [
-    "The Emoji Kingdom lived in harmony...",
-    "Until the sinister forces of Darkness emerged.",
-    "Corrupted emojis now ravage our lands.",
-    "The ultimate evil, King Devil 👑😈👑, awaits at Level 100.",
-    "Will you be the hero we need?"
+// ========== CONFIG ==========
+const ENEMY_EMOJIS = ['💀','☠️','🕷️','🦂','🦇','🩸','🔪','🧨','💣','☣️','☢️'];
+const BOSS_EMOJIS = ['👹','👺','🐲','🌋','🌪️','👁️','🪐'];
+const FINAL_BOSS_EMOJI = '👑☠️👑';
+const RESCUED_POOL = ['🐶','🐱','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🐤','🐰','🐢','🦖','🦄','🐝','🐙','🐬','🦀'];
+const POWERUP_TYPES = [
+    { emoji: '❤️', type: 'health', label: '+HP' },
+    { emoji: '⚡', type: 'speed', label: 'SPEED!' },
+    { emoji: '💪', type: 'damage', label: 'POWER!' },
+    { emoji: '🛡️', type: 'shield', label: 'SHIELD!' }
 ];
+const HERO_CLASSES = {
+    balanced: { emoji:'⚔️', maxHp:100, hp:100, damage:10, attackSpeed:800, critChance:0.1, speed:3, range:100, hpRegen:0.5, abilityCD:8000, abilityIcon:'🌀', projEmoji:null },
+    tank:     { emoji:'🛡️', maxHp:250, hp:250, damage:12, attackSpeed:1200, critChance:0.05, speed:2, range:80, hpRegen:2, abilityCD:10000, abilityIcon:'🛡️', projEmoji:null },
+    assassin: { emoji:'🗡️', maxHp:60, hp:60, damage:15, attackSpeed:500, critChance:0.3, speed:4.5, range:80, hpRegen:0, abilityCD:6000, abilityIcon:'👤', projEmoji:null },
+    mage:     { emoji:'🧙', maxHp:80, hp:80, damage:25, attackSpeed:1000, critChance:0.1, speed:2.5, range:350, hpRegen:0.3, abilityCD:7000, abilityIcon:'☄️', projEmoji:'🔥' },
+    archer:   { emoji:'🏹', maxHp:90, hp:90, damage:18, attackSpeed:600, critChance:0.2, speed:3.5, range:400, hpRegen:0, abilityCD:8000, abilityIcon:'🌧️', projEmoji:'➳' }
+};
+const MARKET_ITEMS = {
+    skins: [
+        { id:'skin_base', name:'Default', type:'skin', cost:0, emoji:'⚔️' },
+        { id:'skin_ninja', name:'Shadow Ninja', type:'skin', cost:500, emoji:'🥷' },
+        { id:'skin_demon', name:'Demon Lord', type:'skin', cost:1500, emoji:'👺' },
+        { id:'skin_mech', name:'Cyborg', type:'skin', cost:3000, emoji:'🤖' }
+    ],
+    auras: [
+        { id:'aura_none', name:'No Aura', type:'aura', cost:0, class:'' },
+        { id:'aura_fire', name:'Flame Aura', type:'aura', cost:1000, class:'aura-fire' },
+        { id:'aura_void', name:'Void Aura', type:'aura', cost:2500, class:'aura-void' }
+    ]
+};
+const STORY_LINES = ["The Emoji Kingdom lived in harmony...","Until the sinister forces of Darkness emerged.","Corrupted emojis now ravage our lands.","The ultimate evil, King Devil 👑😈👑, awaits at Level 100.","Will you be the hero we need?"];
 
-// Game State
+// ========== STATE ==========
 let state = {
-    isRunning: false,
-    level: 1,
-    points: 0,
-    enemiesDefeatedInLevel: 0,
-    enemiesRequiredForNextLevel: 5,
-    lastTick: 0,
-    lastAttackTime: 0,
-    player: { ...HERO_CLASSES['balanced'] }, // Default
-    selectedClass: 'balanced',
-    heroElement: null,
-    heroPosition: { x: 50, y: 50 }, // Percentages
-    heroTarget: { x: 50, y: 50 }, // For clicking to move
-    enemies: [],
-    rescued: [],
+    isRunning: false, level: 1, points: 0, enemiesDefeatedInLevel: 0, enemiesRequiredForNextLevel: 5,
+    lastTick: 0, lastAttackTime: 0, totalLifetimePoints: 0, unlockedItems: ['skin_base','aura_none'],
+    equippedSkin: 'skin_base', equippedAura: 'aura_none',
+    player: { ...HERO_CLASSES['balanced'] }, selectedClass: 'balanced',
+    heroElement: null, heroPosition: { x: 100, y: 200 }, heroTarget: { x: 100, y: 200 },
+    enemies: [], rescued: [], projectiles: [], powerups: [],
     upgrades: {
-        damage: { level: 1, cost: 10, mult: 1.5, costMult: 1.5 },
-        health: { level: 1, cost: 15, mult: 1.5, costMult: 1.5 },
-        speed: { level: 1, cost: 20, mult: 0.9, costMult: 1.8 } // Reduces attack delay
-    }
+        damage: { level:1, cost:10, baseCost:10, mult:1.5, costMult:1.5 },
+        health: { level:1, cost:15, baseCost:15, mult:1.5, costMult:1.5 },
+        speed:  { level:1, cost:20, baseCost:20, mult:0.9, costMult:1.8 }
+    },
+    // Input
+    joystickActive: false, joystickDir: { x:0, y:0 }, keys: {},
+    attackHeld: false, lastManualAttack: 0,
+    // Combat
+    combo: 0, lastComboHit: 0, comboMult: 1,
+    isDodging: false, dodgeCooldown: 0, lastDodgeTime: 0,
+    abilityCooldown: 0, lastAbilityTime: 0,
+    activeBuffs: [],
+    waveTimer: 0, waveTimerMax: 0, betweenWaves: false
 };
 
-// PocketBase Setup
+// ========== POCKETBASE ==========
 const pb = new PocketBase('https://pocketbase.bdpro.in');
 
-// --- SOUND ENGINE ---
-const SoundEngine = {
+// ========== SOUND ENGINE ==========
+const SFX = {
     ctx: null,
-    
-    init() {
-        if (!this.ctx) {
-            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-    },
-    
-    playTone(hz, type = 'sine', duration = 0.1, vol = 0.1) {
+    init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+    tone(hz, type='sine', dur=0.1, vol=0.1) {
         if (!this.ctx) return;
-        
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        
-        osc.type = type;
-        osc.frequency.setValueAtTime(hz, this.ctx.currentTime);
-        
-        gain.gain.setValueAtTime(vol, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
-        
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        
-        osc.start();
-        osc.stop(this.ctx.currentTime + duration);
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = type; o.frequency.setValueAtTime(hz, this.ctx.currentTime);
+        g.gain.setValueAtTime(vol, this.ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
+        o.connect(g); g.connect(this.ctx.destination); o.start(); o.stop(this.ctx.currentTime + dur);
     },
-    
-    shoot() { this.playTone(800, 'square', 0.1, 0.05); },
-    critShoot() { this.playTone(1200, 'square', 0.15, 0.08); },
-    hit() { this.playTone(150, 'sawtooth', 0.2, 0.1); },
-    coin() { 
-        this.playTone(1200, 'sine', 0.1, 0.05); 
-        setTimeout(() => this.playTone(1600, 'sine', 0.2, 0.05), 50);
-    },
-    levelUp() {
-        [440, 554, 659, 880].forEach((hz, i) => {
-            setTimeout(() => this.playTone(hz, 'sine', 0.3, 0.1), i * 100);
-        });
-    },
-    upgrade() {
-        this.playTone(600, 'triangle', 0.1, 0.1);
-        setTimeout(() => this.playTone(900, 'triangle', 0.3, 0.1), 100);
-    },
+    shoot() { this.tone(800,'square',0.1,0.05); },
+    crit() { this.tone(1200,'square',0.15,0.08); },
+    hit() { this.tone(150,'sawtooth',0.15,0.1); },
+    coin() { this.tone(1200,'sine',0.1,0.05); setTimeout(()=>this.tone(1600,'sine',0.2,0.05),50); },
+    levelUp() { [440,554,659,880].forEach((hz,i)=>setTimeout(()=>this.tone(hz,'sine',0.3,0.1),i*100)); },
+    upgrade() { this.tone(600,'triangle',0.1,0.1); setTimeout(()=>this.tone(900,'triangle',0.3,0.1),100); },
+    dodge() { this.tone(400,'sine',0.1,0.06); this.tone(600,'sine',0.1,0.06); },
+    ability() { [300,500,700,900].forEach((hz,i)=>setTimeout(()=>this.tone(hz,'triangle',0.2,0.08),i*60)); },
+    pickup() { this.tone(800,'sine',0.08,0.06); setTimeout(()=>this.tone(1000,'sine',0.08,0.06),60); setTimeout(()=>this.tone(1200,'sine',0.15,0.06),120); },
     gameOver() {
         if (!this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(300, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(10, this.ctx.currentTime + 1.5);
-        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 1.5);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 1.5);
+        const o=this.ctx.createOscillator(), g=this.ctx.createGain();
+        o.type='sawtooth'; o.frequency.setValueAtTime(300,this.ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(10,this.ctx.currentTime+1.5);
+        g.gain.setValueAtTime(0.3,this.ctx.currentTime); g.gain.linearRampToValueAtTime(0,this.ctx.currentTime+1.5);
+        o.connect(g); g.connect(this.ctx.destination); o.start(); o.stop(this.ctx.currentTime+1.5);
     }
 };
 
-// DOM Elements
+// ========== DOM ==========
+const $ = id => document.getElementById(id);
 const els = {
-    screens: {
-        login: document.getElementById('login-screen'),
-        register: document.getElementById('register-screen'),
-        start: document.getElementById('start-screen'),
-        story: document.getElementById('story-screen'),
-        charSelect: document.getElementById('char-select-screen'),
-        game: document.getElementById('game-ui'),
-        end: document.getElementById('end-screen')
-    },
-    buttons: {
-        login: document.getElementById('login-btn'),
-        register: document.getElementById('register-btn'),
-        goToRegister: document.getElementById('go-to-register'),
-        goToLogin: document.getElementById('go-to-login'),
-        start: document.getElementById('start-btn'),
-        load: document.getElementById('load-btn'),
-        save: document.getElementById('save-btn'),
-        skipStory: document.getElementById('skip-btn'),
-        restart: document.getElementById('restart-btn')
-    },
-    auth: {
-        email: document.getElementById('login-email'),
-        pass: document.getElementById('login-pass'),
-        error: document.getElementById('login-error'),
-        
-        regEmail: document.getElementById('reg-email'),
-        regPass: document.getElementById('reg-pass'),
-        regPassConfirm: document.getElementById('reg-pass-confirm'),
-        regError: document.getElementById('reg-error'),
-        regSuccess: document.getElementById('reg-success')
-    },
-    storyText: document.getElementById('story-text'),
-    charCards: document.querySelectorAll('.char-card'),
-    hud: {
-        healthBar: document.getElementById('health-bar'),
-        healthText: document.getElementById('health-text'),
-        levelDisplay: document.getElementById('level-display'),
-        levelProgress: document.getElementById('level-progress'),
-        pointsDisplay: document.getElementById('points-display'),
-        rescuedContainer: document.getElementById('rescued-container')
-    },
-    world: document.getElementById('game-world'),
-    textLayer: document.getElementById('damage-text-layer'),
-    warning: document.getElementById('boss-warning'),
-    saveToast: document.getElementById('save-toast'),
-    upgrades: {
-        dmgBtn: document.getElementById('upg-damage'),
-        dmgCost: document.getElementById('cost-damage'),
-        dmgLvl: document.getElementById('lvl-damage'),
-        
-        hpBtn: document.getElementById('upg-health'),
-        hpCost: document.getElementById('cost-health'),
-        hpLvl: document.getElementById('lvl-health'),
-        
-        spdBtn: document.getElementById('upg-speed'),
-        spdCost: document.getElementById('cost-speed'),
-        spdLvl: document.getElementById('lvl-speed'),
-        
-        healBtn: document.getElementById('btn-heal')
-    }
+    screens: { login:$('login-screen'), register:$('register-screen'), start:$('start-screen'), story:$('story-screen'), charSelect:$('char-select-screen'), game:$('game-ui'), end:$('end-screen') },
+    auth: { email:$('login-email'), pass:$('login-pass'), error:$('login-error'), regEmail:$('reg-email'), regPass:$('reg-pass'), regPassConfirm:$('reg-pass-confirm'), regError:$('reg-error'), regSuccess:$('reg-success') },
+    hud: { healthBar:$('hero-hp-fill'), healthText:$('health-text'), levelDisplay:$('level-display'), levelProgress:$('level-progress'), pointsDisplay:$('points-display'), rescuedContainer:$('rescued-container') },
+    world: $('game-world'), textLayer: $('damage-text-layer'), warning: $('boss-warning'), saveToast: $('save-toast'),
+    storyText: $('story-text'),
+    upgrades: { storeRef:$('upgrade-store'), dmgBtn:$('upg-damage'), dmgCost:$('cost-damage'), dmgLvl:$('lvl-damage'), hpBtn:$('upg-health'), hpCost:$('cost-health'), hpLvl:$('lvl-health'), spdBtn:$('upg-speed'), spdCost:$('cost-speed'), spdLvl:$('lvl-speed'), healBtn:$('btn-heal') },
+    marketplace: { screen:$('marketplace-screen'), skinsGrid:$('skins-grid'), aurasGrid:$('auras-grid'), pointsDisplay:$('market-points-display') },
+    combo: { display:$('combo-display'), count:$('combo-count'), mult:$('combo-mult') },
+    buffs: $('active-buffs'),
+    wave: { timer:$('wave-timer'), countdown:$('wave-countdown') },
+    joystick: { zone:$('joystick-zone'), base:$('joystick-base'), thumb:$('joystick-thumb') },
+    buttons: { attack:$('attack-btn'), dodge:$('dodge-btn'), ability:$('ability-btn'), abilityIcon:$('ability-icon'), dodgeCD:$('dodge-cooldown-overlay'), abilityCD:$('ability-cooldown-overlay'), login:$('login-btn'), register:$('register-btn'), goToRegister:$('go-to-register'), goToLogin:$('go-to-login'), start:$('start-btn'), load:$('load-btn'), save:$('save-btn'), skipStory:$('skip-btn'), restart:$('restart-btn'), marketStart:$('marketplace-btn-start'), marketEnd:$('marketplace-btn-end'), closeMarket:$('close-marketplace-btn'), saveQuit:$('save-quit-btn'), storeToggle:$('store-toggle-btn'), storeClose:$('close-store-btn') }
 };
 
-// --- INITIALIZATION ---
+// ========== INIT ==========
 function init() {
     bindEvents();
-    
-    // Check if already logged in via LocalStorage
-    if (pb.authStore.isValid) {
-        showStartScreen();
-    }
-}
-
-function bindEvents() {
-    els.buttons.login.addEventListener('click', handleLogin);
-    els.buttons.register.addEventListener('click', handleRegistration);
-    
-    // Auth screen toggling
-    els.buttons.goToRegister.addEventListener('click', () => {
-        els.screens.login.classList.remove('active');
-        els.screens.login.classList.add('hidden');
-        els.screens.register.classList.remove('hidden');
-        els.screens.register.classList.add('active');
-        clearAuthErrors();
-    });
-    
-    els.buttons.goToLogin.addEventListener('click', () => {
-        els.screens.register.classList.remove('active');
-        els.screens.register.classList.add('hidden');
-        els.screens.login.classList.remove('hidden');
-        els.screens.login.classList.add('active');
-        clearAuthErrors();
-    });
-
-    els.buttons.start.addEventListener('click', showStoryScreen);
-    els.buttons.load.addEventListener('click', loadGame);
-    els.buttons.save.addEventListener('click', saveGame);
-    els.buttons.skipStory.addEventListener('click', showCharSelectScreen);
-    
-    // Character Selection
-    els.charCards.forEach(card => {
-        card.addEventListener('click', () => {
-            const heroType = card.getAttribute('data-hero');
-            state.selectedClass = heroType;
-            startGame();
-        });
-    });
-
-    els.buttons.restart.addEventListener('click', resetGame);
-    
-    // Store buttons
-    els.upgrades.dmgBtn.addEventListener('click', () => buyUpgrade('damage'));
-    els.upgrades.hpBtn.addEventListener('click', () => buyUpgrade('health'));
-    els.upgrades.spdBtn.addEventListener('click', () => buyUpgrade('speed'));
-    els.upgrades.healBtn.addEventListener('click', () => {
-        if (state.points >= 5) {
-            state.points -= 5;
-            healPlayer(state.player.maxHp * 0.5);
-            updateUI();
-        }
-    });
-
-    // World interaction (moving or clicking enemies handled separately)
-    // Map both mouse down and touch start
-    els.world.addEventListener('mousedown', handleWorldClick);
-    els.world.addEventListener('touchstart', handleWorldTouch, { passive: false });
+    loadGlobalProgress();
+    renderMarketplace();
+    if (pb.authStore.isValid) showScreen('start');
 }
 
 let typeWriterTimeout;
 
-function clearAuthErrors() {
-    els.auth.error.classList.add('hidden');
-    els.auth.regError.classList.add('hidden');
-    els.auth.regSuccess.classList.add('hidden');
+function bindEvents() {
+    // Auth
+    els.buttons.login.addEventListener('click', handleLogin);
+    els.buttons.register.addEventListener('click', handleRegistration);
+    els.buttons.goToRegister.addEventListener('click', () => { showScreen('register'); clearAuthErrors(); });
+    els.buttons.goToLogin.addEventListener('click', () => { showScreen('login'); clearAuthErrors(); });
+
+    // Nav
+    els.buttons.start.addEventListener('click', showStoryScreen);
+    els.buttons.load.addEventListener('click', loadGame);
+    els.buttons.save.addEventListener('click', saveGame);
+    els.buttons.skipStory.addEventListener('click', () => { clearTimeout(typeWriterTimeout); showScreen('charSelect'); });
+    els.buttons.restart.addEventListener('click', resetGame);
+    els.buttons.saveQuit.addEventListener('click', () => { saveGame(); state.isRunning = false; showScreen('start'); });
+
+    // Marketplace
+    els.buttons.marketStart.addEventListener('click', showMarketplace);
+    els.buttons.marketEnd.addEventListener('click', showMarketplace);
+    els.buttons.closeMarket.addEventListener('click', () => {
+        els.marketplace.screen.classList.remove('active'); els.marketplace.screen.classList.add('hidden');
+        if (state.isRunning) { els.screens.game.classList.add('active'); els.screens.game.classList.remove('hidden'); }
+        else { els.screens.start.classList.add('active'); els.screens.start.classList.remove('hidden'); }
+    });
+
+    // Character select
+    document.querySelectorAll('.char-card').forEach(card => {
+        card.addEventListener('click', () => { state.selectedClass = card.dataset.hero; startGame(); });
+    });
+
+    // Store
+    els.upgrades.dmgBtn.addEventListener('click', () => buyUpgrade('damage'));
+    els.upgrades.hpBtn.addEventListener('click', () => buyUpgrade('health'));
+    els.upgrades.spdBtn.addEventListener('click', () => buyUpgrade('speed'));
+    els.upgrades.healBtn.addEventListener('click', () => {
+        if (state.points >= 5 && state.player.hp < state.player.maxHp) { state.points -= 5; healPlayer(state.player.maxHp * 0.5); updateUI(); }
+    });
+    els.buttons.storeToggle.addEventListener('click', () => els.upgrades.storeRef.classList.toggle('hidden'));
+    els.buttons.storeClose.addEventListener('click', () => els.upgrades.storeRef.classList.add('hidden'));
+
+    // ===== MOBILE CONTROLS =====
+    // Joystick
+    let joystickOrigin = { x:0, y:0 }, joystickTouchId = null;
+    els.joystick.zone.addEventListener('touchstart', e => {
+        e.preventDefault();
+        const t = e.changedTouches[0];
+        joystickTouchId = t.identifier;
+        joystickOrigin = { x: t.clientX, y: t.clientY };
+        const rect = els.joystick.zone.getBoundingClientRect();
+        els.joystick.base.style.left = `${t.clientX - rect.left - 60}px`;
+        els.joystick.base.style.top = `${t.clientY - rect.top - 60}px`;
+        els.joystick.base.classList.remove('hidden');
+        state.joystickActive = true;
+    }, { passive: false });
+
+    document.addEventListener('touchmove', e => {
+        if (!state.joystickActive) return;
+        for (const t of e.changedTouches) {
+            if (t.identifier === joystickTouchId) {
+                const dx = t.clientX - joystickOrigin.x, dy = t.clientY - joystickOrigin.y;
+                const dist = Math.sqrt(dx*dx + dy*dy), maxDist = 45;
+                const clampDist = Math.min(dist, maxDist);
+                const angle = Math.atan2(dy, dx);
+                const cx = Math.cos(angle) * clampDist, cy = Math.sin(angle) * clampDist;
+                els.joystick.thumb.style.transform = `translate(${cx}px, ${cy}px)`;
+                state.joystickDir = { x: cx / maxDist, y: cy / maxDist };
+            }
+        }
+    }, { passive: false });
+
+    const releaseJoystick = e => {
+        for (const t of e.changedTouches) {
+            if (t.identifier === joystickTouchId) {
+                state.joystickActive = false;
+                state.joystickDir = { x:0, y:0 };
+                els.joystick.base.classList.add('hidden');
+                els.joystick.thumb.style.transform = '';
+                joystickTouchId = null;
+            }
+        }
+    };
+    document.addEventListener('touchend', releaseJoystick);
+    document.addEventListener('touchcancel', releaseJoystick);
+
+    // Attack button
+    els.buttons.attack.addEventListener('touchstart', e => { e.preventDefault(); state.attackHeld = true; });
+    els.buttons.attack.addEventListener('touchend', e => { e.preventDefault(); state.attackHeld = false; });
+    els.buttons.attack.addEventListener('touchcancel', () => state.attackHeld = false);
+    els.buttons.attack.addEventListener('mousedown', e => { e.preventDefault(); state.attackHeld = true; });
+    els.buttons.attack.addEventListener('mouseup', () => state.attackHeld = false);
+
+    // Dodge button
+    els.buttons.dodge.addEventListener('touchstart', e => { e.preventDefault(); performDodge(); });
+    els.buttons.dodge.addEventListener('click', performDodge);
+
+    // Ability button
+    els.buttons.ability.addEventListener('touchstart', e => { e.preventDefault(); performAbility(); });
+    els.buttons.ability.addEventListener('click', performAbility);
+
+    // Keyboard fallback
+    document.addEventListener('keydown', e => {
+        state.keys[e.key.toLowerCase()] = true;
+        if (e.key === ' ') { e.preventDefault(); state.attackHeld = true; }
+        if (e.key === 'Shift') performDodge();
+        if (e.key === 'q' || e.key === 'Q') performAbility();
+    });
+    document.addEventListener('keyup', e => {
+        state.keys[e.key.toLowerCase()] = false;
+        if (e.key === ' ') state.attackHeld = false;
+    });
+
+    // Click-to-move on world (desktop fallback)
+    els.world.addEventListener('mousedown', e => {
+        if (!state.isRunning) return;
+        if (e.target === els.world || e.target.id === 'damage-text-layer' || e.target.id === 'battleground-elements') {
+            const rect = els.world.getBoundingClientRect();
+            state.heroTarget = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+    });
+
+    // Tap enemies to attack
+    els.world.addEventListener('touchstart', e => {
+        if (!state.isRunning) return;
+        // Don't interfere with joystick
+    }, { passive: true });
 }
 
+// ========== AUTH ==========
+function clearAuthErrors() { els.auth.error.classList.add('hidden'); els.auth.regError.classList.add('hidden'); els.auth.regSuccess.classList.add('hidden'); }
+
 async function handleLogin() {
-    const email = els.auth.email.value;
-    const pass = els.auth.pass.value;
-    
-    if(!email || !pass) return;
-    
-    els.buttons.login.innerText = "LOGGING IN...";
-    els.buttons.login.disabled = true;
-    
+    const email = els.auth.email.value, pass = els.auth.pass.value;
+    if (!email || !pass) return;
+    els.buttons.login.innerText = "LOGGING IN..."; els.buttons.login.disabled = true;
     try {
-        const authData = await pb.collection('users').authWithPassword(email, pass);
-        if (pb.authStore.isValid) {
-            showStartScreen();
-        }
-    } catch (err) {
-        console.error("Login failed:", err);
-        els.auth.error.innerText = "Invalid credentials";
-        els.auth.error.classList.remove('hidden');
-        els.buttons.login.innerText = "LOGIN";
-        els.buttons.login.disabled = false;
+        await pb.collection('users').authWithPassword(email, pass);
+        if (pb.authStore.isValid) showScreen('start');
+    } catch(e) {
+        els.auth.error.innerText = "Invalid credentials"; els.auth.error.classList.remove('hidden');
+        els.buttons.login.innerText = "LOGIN"; els.buttons.login.disabled = false;
     }
 }
 
 async function handleRegistration() {
-    const email = els.auth.regEmail.value;
-    const pass = els.auth.regPass.value;
-    const passConfirm = els.auth.regPassConfirm.value;
-    
+    const email = els.auth.regEmail.value, pass = els.auth.regPass.value, pc = els.auth.regPassConfirm.value;
     clearAuthErrors();
-    
-    if(!email || !pass || !passConfirm) {
-        els.auth.regError.innerText = "Please fill all fields";
-        els.auth.regError.classList.remove('hidden');
-        return;
-    }
-    
-    if (pass !== passConfirm) {
-        els.auth.regError.innerText = "Passwords do not match";
-        els.auth.regError.classList.remove('hidden');
-        return;
-    }
-    
-    if (pass.length < 8) {
-        els.auth.regError.innerText = "Password must be at least 8 characters";
-        els.auth.regError.classList.remove('hidden');
-        return;
-    }
-
-    els.buttons.register.innerText = "CREATING...";
-    els.buttons.register.disabled = true;
-    
+    if (!email || !pass || !pc) { els.auth.regError.innerText = "Please fill all fields"; els.auth.regError.classList.remove('hidden'); return; }
+    if (pass !== pc) { els.auth.regError.innerText = "Passwords do not match"; els.auth.regError.classList.remove('hidden'); return; }
+    if (pass.length < 8) { els.auth.regError.innerText = "Password must be at least 8 characters"; els.auth.regError.classList.remove('hidden'); return; }
+    els.buttons.register.innerText = "CREATING..."; els.buttons.register.disabled = true;
     try {
-        // Create user
-        const data = {
-            "email": email,
-            "password": pass,
-            "passwordConfirm": passConfirm
-        };
-        const record = await pb.collection('users').create(data);
-        
-        // Show success, auto login
+        await pb.collection('users').create({ email, password: pass, passwordConfirm: pc });
         els.auth.regSuccess.classList.remove('hidden');
-        
-        // Login with new credentials
         await pb.collection('users').authWithPassword(email, pass);
-        
-        if (pb.authStore.isValid) {
-            setTimeout(() => {
-                els.screens.register.classList.remove('active');
-                els.screens.register.classList.add('hidden');
-                showStartScreen();
-            }, 1000);
-        }
-        
-    } catch (err) {
-        console.error("Registration failed:", err);
-        // Display PocketBase error message if available
-        els.auth.regError.innerText = err.response?.message || "Failed to create account. Email may be taken.";
+        if (pb.authStore.isValid) setTimeout(() => showScreen('start'), 1000);
+    } catch(e) {
+        els.auth.regError.innerText = e.response?.message || "Failed to create account.";
         els.auth.regError.classList.remove('hidden');
-        els.buttons.register.innerText = "SIGN UP";
-        els.buttons.register.disabled = false;
+        els.buttons.register.innerText = "SIGN UP"; els.buttons.register.disabled = false;
     }
 }
 
-function showStartScreen() {
-    els.screens.login.classList.remove('active');
-    els.screens.login.classList.add('hidden');
-    els.screens.start.classList.remove('hidden');
-    els.screens.start.classList.add('active');
+// ========== SCREEN MANAGEMENT ==========
+function showScreen(name) {
+    Object.entries(els.screens).forEach(([k, s]) => {
+        if (k === name) { s.classList.remove('hidden'); s.classList.add('active'); }
+        else { s.classList.remove('active'); s.classList.add('hidden'); }
+    });
 }
 
 function showStoryScreen() {
-    els.screens.start.classList.remove('active');
-    els.screens.start.classList.add('hidden');
-    els.screens.story.classList.remove('hidden');
-    els.screens.story.classList.add('active');
-    
+    showScreen('story');
     els.storyText.innerHTML = '';
-    let lineIndex = 0;
-    let charIndex = 0;
-    
+    let lineIdx = 0, charIdx = 0;
     function typeWriter() {
-        if (lineIndex < STORY_LINES.length) {
-            if (charIndex < STORY_LINES[lineIndex].length) {
-                els.storyText.innerHTML += STORY_LINES[lineIndex].charAt(charIndex);
-                charIndex++;
-                typeWriterTimeout = setTimeout(typeWriter, 40); // typing speed
-            } else {
-                els.storyText.innerHTML += '<br><br>';
-                lineIndex++;
-                charIndex = 0;
-                typeWriterTimeout = setTimeout(typeWriter, 500); // delay between lines
-            }
-        } else {
-            // Finished typing, change button text
-            els.buttons.skipStory.innerText = "CHOOSE HERO";
-        }
+        if (lineIdx < STORY_LINES.length) {
+            if (charIdx < STORY_LINES[lineIdx].length) {
+                els.storyText.innerHTML += STORY_LINES[lineIdx].charAt(charIdx++);
+                typeWriterTimeout = setTimeout(typeWriter, 40);
+            } else { els.storyText.innerHTML += '<br><br>'; lineIdx++; charIdx = 0; typeWriterTimeout = setTimeout(typeWriter, 500); }
+        } else { els.buttons.skipStory.innerText = "CHOOSE HERO"; }
     }
-    
     typeWriter();
 }
 
-function showCharSelectScreen() {
-    clearTimeout(typeWriterTimeout);
-    els.screens.story.classList.remove('active');
-    els.screens.story.classList.add('hidden');
-    
-    els.screens.charSelect.classList.remove('hidden');
-    els.screens.charSelect.classList.add('active');
-}
-
+// ========== START GAME ==========
 function startGame(isLoading = false) {
-    els.screens.charSelect.classList.remove('active');
-    els.screens.charSelect.classList.add('hidden');
-    els.screens.end.classList.remove('active');
-    els.screens.end.classList.add('hidden');
-    els.screens.start.classList.remove('active');
-    els.screens.start.classList.add('hidden');
-    
-    els.screens.game.classList.remove('hidden');
-    els.screens.game.classList.add('active');
-    
-    // Init Audio Context on first interaction
-    SoundEngine.init();
-    
+    showScreen('game');
+    SFX.init();
+
     if (!isLoading) {
-        // Fresh start
+        const worldRect = els.world.getBoundingClientRect();
         Object.assign(state, {
-            isRunning: true,
-            level: 1,
-            enemiesDefeatedInLevel: 0,
-            enemiesRequiredForNextLevel: 5,
-            enemies: [],
-            rescued: [],
+            isRunning: true, level: 1, enemiesDefeatedInLevel: 0, enemiesRequiredForNextLevel: 5,
+            enemies: [], rescued: [], projectiles: [], powerups: [],
             player: { ...HERO_CLASSES[state.selectedClass] },
-            heroPosition: { x: window.innerWidth * 0.1, y: window.innerHeight * 0.5 },
-            heroTarget: { x: window.innerWidth * 0.1, y: window.innerHeight * 0.5 }
+            heroPosition: { x: (worldRect.width||200)/2, y: (worldRect.height||300)/2 },
+            heroTarget: { x: (worldRect.width||200)/2, y: (worldRect.height||300)/2 },
+            combo: 0, lastComboHit: 0, comboMult: 1, activeBuffs: [],
+            isDodging: false, dodgeCooldown: 0, lastDodgeTime: 0,
+            abilityCooldown: 0, lastAbilityTime: 0, betweenWaves: false, waveTimer: 0
         });
-        
-        // Reset upgrades
         state.upgrades = {
-            damage: { level: 1, cost: 10, mult: 1.5, costMult: 1.5 },
-            health: { level: 1, cost: 15, mult: 1.5, costMult: 1.5 },
-            speed: { level: 1, cost: 20, mult: 0.9, costMult: 1.8 }
+            damage: { level:1, cost:10, baseCost:10, mult:1.5, costMult:1.5 },
+            health: { level:1, cost:15, baseCost:15, mult:1.5, costMult:1.5 },
+            speed:  { level:1, cost:20, baseCost:20, mult:0.9, costMult:1.8 }
         };
     } else {
-        // Resuming game: just update loop state
-        state.isRunning = true;
-        state.enemies = []; // Clear existing enemies, wave spawner will handle it
+        state.isRunning = true; state.enemies = []; state.projectiles = []; state.powerups = [];
     }
-    
-    els.world.innerHTML = '<div id="damage-text-layer"></div>';
+
+    els.world.innerHTML = '<div id="battleground-elements"></div><div id="damage-text-layer"></div>';
     els.textLayer = document.getElementById('damage-text-layer');
-    
+    els.buttons.abilityIcon.innerText = state.player.abilityIcon || '🌀';
+
+    generateBattleground();
     createHero();
     updateUI();
     updateRescuedUI();
-    
+
     state.lastTick = performance.now();
     requestAnimationFrame(gameLoop);
 }
 
-// --- SAVE & LOAD PROGRESS ---
-function saveGame() {
-    els.buttons.save.innerText = "SAVING...";
-    els.buttons.save.disabled = true;
-
-    try {
-        const saveData = {
-            "level": state.level,
-            "points": state.points,
-            "heroClass": state.selectedClass,
-            "upgrades": state.upgrades,
-            "rescued": state.rescued
-        };
-        
-        localStorage.setItem('emojiWarzSave', JSON.stringify(saveData));
-
-        // Show toast
-        els.saveToast.classList.remove('hidden');
-        setTimeout(() => els.saveToast.classList.add('hidden'), 3000);
-        SoundEngine.upgrade(); // Use a positive sound
-
-    } catch (err) {
-        console.error("Save failed:", err);
-        alert("Failed to save game to local storage.");
-    } finally {
-        els.buttons.save.innerText = "💾 SAVE";
-        els.buttons.save.disabled = false;
-    }
-}
-
-function loadGame() {
-    els.buttons.load.innerText = "LOADING...";
-    els.buttons.load.disabled = true;
-    const errorEl = document.getElementById('load-error');
-    errorEl.classList.add('hidden');
-    
-    try {
-        const saveString = localStorage.getItem('emojiWarzSave');
-        
-        if (!saveString) {
-            errorEl.innerText = "No local save file found.";
-            errorEl.classList.remove('hidden');
-            els.buttons.load.innerText = "LOAD SAVE";
-            els.buttons.load.disabled = false;
-            return;
-        }
-        
-        const save = JSON.parse(saveString);
-        
-        // Restore State
-        state.level = save.level;
-        state.points = save.points;
-        state.selectedClass = save.heroClass;
-        state.upgrades = save.upgrades;
-        state.rescued = save.rescued || [];
-        
-        // Rebuild player stats based on base class + upgrades
-        const baseClass = HERO_CLASSES[state.selectedClass];
-        state.player = { ...baseClass };
-        
-        // Apply historical upgrades
-        // Damage
-        for(let i=1; i < state.upgrades.damage.level; i++) {
-            state.player.damage = Math.floor(state.player.damage * state.upgrades.damage.mult);
-        }
-        // Health
-        for(let i=1; i < state.upgrades.health.level; i++) {
-            state.player.maxHp = Math.floor(state.player.maxHp * state.upgrades.health.mult);
-        }
-        state.player.hp = state.player.maxHp; // Heal to full on load
-        // Speed
-        for(let i=1; i < state.upgrades.speed.level; i++) {
-            state.player.attackSpeed = Math.max(100, Math.floor(state.player.attackSpeed * state.upgrades.speed.mult));
-        }
-
-        els.buttons.load.innerText = "LOAD SAVE";
-        els.buttons.load.disabled = false;
-        
-        startGame(true); // Jump straight to game
-        
-    } catch (err) {
-        console.error("Load failed:", err);
-        errorEl.innerText = "Error loading save.";
-        errorEl.classList.remove('hidden');
-        els.buttons.load.innerText = "LOAD SAVE";
-        els.buttons.load.disabled = false;
+function generateBattleground() {
+    const bg = document.getElementById('battleground-elements');
+    if (!bg) return;
+    const wr = els.world.getBoundingClientRect();
+    for (let i = 0; i < 15; i++) {
+        const el = document.createElement('div');
+        el.className = Math.random() > 0.5 ? 'bg-crater' : 'bg-scorch';
+        el.style.left = `${Math.random()*(wr.width||300)}px`;
+        el.style.top = `${Math.random()*(wr.height||400)}px`;
+        el.style.transform = `translate(-50%,-50%) scale(${0.5+Math.random()}) rotate(${Math.random()*360}deg)`;
+        bg.appendChild(el);
     }
 }
 
 function resetGame() {
-    state.points = 0; // Punish slightly for dying, reset everything
-    // Reset upgrades
-    for (let key in state.upgrades) {
-        state.upgrades[key].level = 1;
-        state.upgrades[key].cost = state.upgrades[key].costMult === 1.5 ? 10 : 20; // Rough reset
-    }
-    state.rescued = [];
+    state.points = 0; state.rescued = []; state.combo = 0; state.activeBuffs = [];
     if (els.hud.rescuedContainer) els.hud.rescuedContainer.innerHTML = '';
     startGame();
 }
 
-// --- GAME LOOP ---
-function gameLoop(currentTime) {
+// ========== GAME LOOP ==========
+function gameLoop(t) {
     if (!state.isRunning) return;
-    
-    const deltaTime = currentTime - state.lastTick;
-    state.lastTick = currentTime;
-    
-    update(currentTime, deltaTime);
-    
+    const dt = Math.min(t - state.lastTick, 50); // Cap delta for tab-switch
+    state.lastTick = t;
+
+    moveHero(dt);
+    handleAttack(t);
+    updateProjectiles(dt);
+    updateEnemies(t, dt);
+    updatePowerups(dt);
+    updateCombo(t);
+    updateBuffs(t);
+    updateCooldowns(t);
+
+    // HP Regen
+    if (state.player.hpRegen > 0 && state.player.hp < state.player.maxHp && state.player.hp > 0) {
+        state.player.hp = Math.min(state.player.maxHp, state.player.hp + state.player.hpRegen * (dt/1000));
+        updateHealthUI();
+    }
+
+    // Wave spawn
+    if (state.enemies.length === 0 && !state.betweenWaves) {
+        state.betweenWaves = true;
+        state.waveTimerMax = Math.max(2000, 5000 - state.level * 30);
+        state.waveTimer = state.waveTimerMax;
+        els.wave.timer.classList.remove('hidden');
+    }
+    if (state.betweenWaves) {
+        state.waveTimer -= dt;
+        els.wave.countdown.innerText = Math.max(0, Math.ceil(state.waveTimer / 1000));
+        if (state.waveTimer <= 0) {
+            state.betweenWaves = false;
+            els.wave.timer.classList.add('hidden');
+            spawnWave();
+        }
+    }
+
     requestAnimationFrame(gameLoop);
 }
 
-function update(time, dt) {
-    // 1. Move Hero
-    moveHero(dt);
-    
-    // 2. Spawn Enemies
-    if (state.enemies.length === 0) {
-        spawnWave();
-    }
-    
-    // 3. Move Enemies towards Hero & Attack
-    updateEnemies(time, dt);
-    
-    // 4. Hero Auto-Attack
-    if (time - state.lastAttackTime >= state.player.attackSpeed) {
-        autoAttack();
-        state.lastAttackTime = time;
-    }
-}
-
-// --- GAME LOGIC ---
-
+// ========== HERO ==========
 function createHero() {
-    if (state.heroElement) {
-        state.heroElement.remove();
-    }
+    if (state.heroElement) state.heroElement.remove();
     const hero = document.createElement('div');
     hero.className = 'entity hero';
-    hero.innerHTML = state.player.emoji;
+    let emoji = state.player.emoji;
+    const skin = MARKET_ITEMS.skins.find(s => s.id === state.equippedSkin);
+    if (skin && skin.id !== 'skin_base') emoji = skin.emoji;
+    hero.innerHTML = emoji;
+    const aura = MARKET_ITEMS.auras.find(a => a.id === state.equippedAura);
+    if (aura && aura.id !== 'aura_none') hero.classList.add(aura.class);
     els.world.appendChild(hero);
     state.heroElement = hero;
     updateHeroPos();
@@ -583,556 +418,55 @@ function createHero() {
 
 function updateHeroPos() {
     if (!state.heroElement) return;
-    state.heroElement.style.left = `calc(${state.heroPosition.x}px - var(--hero-size) / 2)`;
-    state.heroElement.style.top = `calc(${state.heroPosition.y}px - var(--hero-size) / 2)`;
-}
-
-function handleWorldClick(e) {
-    if (!state.isRunning) return;
-    
-    // Prevent default to stop scrolling on mobile, but don't prevent if they click UI
-    if(e.target === els.world || e.target.id === 'damage-text-layer') {
-        const rect = els.world.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        state.heroTarget = { x, y };
-    }
-}
-
-function handleWorldTouch(e) {
-    if (!state.isRunning) return;
-    
-    // Prevent default to stop scrolling on mobile, but don't prevent if they click UI
-    if(e.target === els.world || e.target.id === 'damage-text-layer') {
-        e.preventDefault(); 
-        const touch = e.touches[0];
-        const rect = els.world.getBoundingClientRect();
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
-        state.heroTarget = { x, y };
-    }
+    state.heroElement.style.left = `${state.heroPosition.x - 30}px`;
+    state.heroElement.style.top = `${state.heroPosition.y - 30}px`;
 }
 
 function moveHero(dt) {
-    if (!state.heroElement) return;
-    
-    // Move towards target
-    const dx = state.heroTarget.x - state.heroPosition.x;
-    const dy = state.heroTarget.y - state.heroPosition.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    if (distance > 5) { // Threshold to stop jitter
-        const moveDist = state.player.speed * (dt / 16); // Normalize to 60fps
-        const ratio = Math.min(moveDist / distance, 1);
-        
-        state.heroPosition.x += dx * ratio;
-        state.heroPosition.y += dy * ratio;
-        updateHeroPos();
-    }
-}
-
-function spawnWave() {
-    if (state.enemies.length > 0) return;
-
-    state.enemiesRequiredForNextLevel = 5 + Math.floor(state.level * 1.5);
-    let enemiesToSpawn = 3 + Math.floor(state.level / 2);
-    
-    // Cap simultaneous enemies for performance
-    if (enemiesToSpawn > 15) enemiesToSpawn = 15;
-
-    const isBossLevel = state.level % 10 === 0;
-    const isFinalBoss = state.level === 100;
-
-    if (isBossLevel || isFinalBoss) {
-        showBossWarning();
-        enemiesToSpawn = 1; // Just the boss
-    }
-
+    if (!state.heroElement || state.isDodging) return;
     const worldRect = els.world.getBoundingClientRect();
 
-    for (let i = 0; i < enemiesToSpawn; i++) {
-        // Spawn edges
-        const side = Math.floor(Math.random() * 4);
-        let x, y;
-        
-        switch(side) {
-            case 0: x = Math.random() * worldRect.width; y = -50; break; // Top
-            case 1: x = worldRect.width + 50; y = Math.random() * worldRect.height; break; // Right
-            case 2: x = Math.random() * worldRect.width; y = worldRect.height + 50; break; // Bottom
-            case 3: x = -50; y = Math.random() * worldRect.height; break; // Left
-        }
+    let dx = 0, dy = 0;
+    // Joystick
+    if (state.joystickActive) { dx = state.joystickDir.x; dy = state.joystickDir.y; }
+    // Keyboard
+    if (state.keys['w'] || state.keys['arrowup']) dy -= 1;
+    if (state.keys['s'] || state.keys['arrowdown']) dy += 1;
+    if (state.keys['a'] || state.keys['arrowleft']) dx -= 1;
+    if (state.keys['d'] || state.keys['arrowright']) dx += 1;
 
-        let isBoss = false;
-        let isUltimateLevelBoss = false;
-        let hpMult = 1;
-        let scale = 1;
-        let emoji = ENEMY_EMOJIS[Math.floor(Math.random() * ENEMY_EMOJIS.length)];
-        
-        if (isFinalBoss) {
-            isUltimateLevelBoss = true;
-            hpMult = 50 * state.level;
-            emoji = FINAL_BOSS_EMOJI;
-            x = worldRect.width / 2;
-            y = 50; // Spawn near top center
-        } else if (isBossLevel) {
-            isBoss = true;
-            hpMult = 10 * state.level;
-            emoji = BOSS_EMOJIS[Math.floor(Math.random() * BOSS_EMOJIS.length)];
-        }
-
-        const maxHp = (20 + (state.level * 15)) * hpMult;
-        
-        createEnemy({
-            id: Date.now() + i,
-            x, y,
-            maxHp: maxHp,
-            hp: maxHp,
-            speed: isBoss ? 0.5 : (isUltimateLevelBoss ? 0.8 : 1 + (state.level * 0.05)),
-            damage: isBoss ? Math.floor(state.level * 2) : Math.max(1, Math.floor(state.level / 2)),
-            emoji: emoji,
-            isBoss,
-            isFinalBoss: isUltimateLevelBoss,
-            attackDelay: 1500,
-            lastAttackTime: 0
-        });
-    }
-}
-
-function showBossWarning() {
-    els.warning.classList.remove('hidden');
-    els.warning.style.display = 'block';
-    setTimeout(() => {
-        els.warning.classList.add('hidden');
-        els.warning.style.display = 'none';
-    }, 2000);
-}
-
-function createEnemy(data) {
-    const el = document.createElement('div');
-    // We add an inline style for animation since we can't reliably trigger it without a small delay if classes are slapped on immediately, 
-    // but the CSS class already has animation, we just need to ensure the element is freshly created.
-    el.className = `entity enemy ${data.isBoss ? 'boss' : ''} ${data.isFinalBoss ? 'final-boss' : ''}`;
-    el.style.animation = `spawnIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, ${data.isFinalBoss ? 'finalBossFloat' : (data.isBoss ? 'bossFloat' : 'enemyWobble')} ${data.isFinalBoss ? '4s' : (data.isBoss ? '3s' : '1s')} ease-in-out infinite`;
-    el.innerHTML = data.emoji;
-    
-    // HP Bar
-    const hpContainer = document.createElement('div');
-    hpContainer.className = `enemy-hp-container ${data.isBoss || data.isFinalBoss ? 'boss-hp-container' : ''}`;
-    
-    const hpFill = document.createElement('div');
-    hpFill.className = `enemy-hp-fill ${data.isBoss || data.isFinalBoss ? 'boss-hp-fill' : ''}`;
-    
-    hpContainer.appendChild(hpFill);
-    el.appendChild(hpContainer);
-    
-    els.world.appendChild(el);
-    
-    const enemyObj = { ...data, element: el, hpFill: hpFill };
-    
-    // Click/Touch to attack manually (hybrid clicker mechanic)
-    const attackHandler = (e) => {
-        e.preventDefault(); // Prevent double firing on mobile
-        e.stopPropagation(); // Don't move hero
-        damageEnemy(enemyObj, state.player.damage);
-        
-        let clientX, clientY;
-        if(e.type === 'touchstart') {
-            clientX = e.touches[0].clientX;
-            clientY = e.touches[0].clientY;
-        } else {
-            clientX = e.clientX;
-            clientY = e.clientY;
-        }
-        createFloatingText(clientX, clientY, state.player.damage, 'damage');
-    };
-    
-    el.addEventListener('mousedown', attackHandler);
-    el.addEventListener('touchstart', attackHandler, { passive: false });
-
-    state.enemies.push(enemyObj);
-    updateEnemyPos(enemyObj);
-}
-
-function updateEnemyPos(enemy) {
-    if (enemy.isFinalBoss) {
-        enemy.element.style.left = `calc(${enemy.x}px - 100px)`;
-        enemy.element.style.top = `calc(${enemy.y}px - 100px)`;
-    } else if (enemy.isBoss) {
-        // Boss size is defined in CSS var(--boss-size)
-        enemy.element.style.left = `calc(${enemy.x}px - 70px)`;
-        enemy.element.style.top = `calc(${enemy.y}px - 70px)`;
+    if (dx !== 0 || dy !== 0) {
+        const len = Math.sqrt(dx*dx + dy*dy);
+        const speed = state.player.speed * (dt / 16);
+        state.heroPosition.x += (dx/len) * speed;
+        state.heroPosition.y += (dy/len) * speed;
+        // Clamp
+        state.heroPosition.x = Math.max(20, Math.min(worldRect.width - 20, state.heroPosition.x));
+        state.heroPosition.y = Math.max(20, Math.min(worldRect.height - 20, state.heroPosition.y));
+        updateHeroPos();
+        if (state.player.speed >= 3 && Math.random() < 0.15) createDashTrail(state.heroPosition.x, state.heroPosition.y);
     } else {
-         enemy.element.style.left = `calc(${enemy.x}px - 30px)`;
-         enemy.element.style.top = `calc(${enemy.y}px - 30px)`;
-    }
-}
-
-function updateEnemies(time, dt) {
-    // Only target active enemies
-    for (let i = state.enemies.length - 1; i >= 0; i--) {
-        const enemy = state.enemies[i];
-        if (enemy.hp <= 0) continue; // Skip dying ones
-
-        const dx = state.heroPosition.x - enemy.x;
-        const dy = state.heroPosition.y - enemy.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        const attackRange = enemy.isFinalBoss ? 150 : (enemy.isBoss ? 100 : 50);
-
-        if (distance > attackRange) {
-            // Move towards hero
-            const moveDist = enemy.speed * (dt / 16);
-            enemy.x += (dx / distance) * moveDist;
-            enemy.y += (dy / distance) * moveDist;
-            updateEnemyPos(enemy);
-        } else {
-            // Attack Hero
-            if (time - enemy.lastAttackTime > enemy.attackDelay) {
-                damagePlayer(enemy.damage);
-                enemy.lastAttackTime = time;
-                
-                // Enemy attack animation
-                enemy.element.style.transform = 'scale(1.2)';
-                setTimeout(() => {
-                    if (enemy.element) enemy.element.style.transform = '';
-                }, 100);
-            }
+        // Click-to-move fallback
+        const tdx = state.heroTarget.x - state.heroPosition.x;
+        const tdy = state.heroTarget.y - state.heroPosition.y;
+        const dist = Math.sqrt(tdx*tdx + tdy*tdy);
+        if (dist > 5) {
+            const moveDist = state.player.speed * (dt/16);
+            const ratio = Math.min(moveDist/dist, 1);
+            state.heroPosition.x += tdx * ratio;
+            state.heroPosition.y += tdy * ratio;
+            state.heroPosition.x = Math.max(20, Math.min(worldRect.width - 20, state.heroPosition.x));
+            state.heroPosition.y = Math.max(20, Math.min(worldRect.height - 20, state.heroPosition.y));
+            updateHeroPos();
         }
     }
 }
 
-function autoAttack() {
-    if (state.enemies.length === 0) return;
-
-    // Find closest enemy
-    let closestEnemy = null;
-    let minDistance = Infinity;
-
-    for (const enemy of state.enemies) {
-        if (enemy.hp <= 0) continue; // Don't attack dying
-        const dx = state.heroPosition.x - enemy.x;
-        const dy = state.heroPosition.y - enemy.y;
-        const distance = dx * dx + dy * dy;
-
-        if (distance < minDistance) {
-            minDistance = distance;
-            closestEnemy = enemy;
-        }
-    }
-
-    // Auto attack range: ~250px radius
-    if (closestEnemy && minDistance < 62500) {
-        let isCrit = Math.random() < state.player.critChance;
-        let dmg = state.player.damage;
-        if (isCrit) dmg = Math.floor(dmg * 2.5);
-
-        damageEnemy(closestEnemy, dmg, isCrit);
-        
-        // Play Sound
-        if (isCrit) SoundEngine.critShoot();
-        else SoundEngine.shoot();
-        
-        // Attack Animation
-        state.heroElement.classList.remove('attacking');
-        void state.heroElement.offsetWidth; // Trigger reflow
-        state.heroElement.classList.add('attacking');
-
-        // Draw projectile/laser (visual only)
-        createAttackLine(state.heroPosition.x, state.heroPosition.y, closestEnemy.x, closestEnemy.y, isCrit);
-    }
+function createDashTrail(x, y) {
+    if (!state.heroElement) return;
+    const trail = document.createElement('div');
+    trail.className = 'dash-trail'; trail.innerHTML = state.heroElement.innerHTML;
+    trail.style.left = `${x}px`; trail.style.top = `${y}px`;
+    els.world.appendChild(trail);
+    setTimeout(() => { if (trail.parentNode) trail.remove(); }, 300);
 }
-
-function createAttackLine(x1, y1, x2, y2, isCrit) {
-    const line = document.createElement('div');
-    const length = Math.sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
-    const angle = Math.atan2(y2-y1, x2-x1) * 180 / Math.PI;
-
-    line.style.position = 'absolute';
-    line.style.left = `${x1}px`;
-    line.style.top = `${y1}px`;
-    line.style.width = `${length}px`;
-    line.style.height = isCrit ? '6px' : '3px';
-    line.style.background = isCrit ? 'linear-gradient(90deg, #fff, #ff00ff)' : 'linear-gradient(90deg, #fff, #00f0ff)';
-    line.style.transformOrigin = '0 50%';
-    line.style.transform = `rotate(${angle}deg)`;
-    line.style.boxShadow = isCrit ? '0 0 10px #ff00ff' : '0 0 10px #00f0ff';
-    line.style.borderRadius = '5px';
-    line.style.zIndex = '80';
-    line.style.pointerEvents = 'none';
-    line.style.opacity = '1';
-    line.style.transition = 'opacity 0.2s ease-out';
-
-    els.textLayer.appendChild(line);
-
-    setTimeout(() => {
-        line.style.opacity = '0';
-        setTimeout(() => line.remove(), 200);
-    }, 50);
-}
-
-function damageEnemy(enemy, amount, isCrit = false) {
-    if (enemy.hp <= 0) return; // Already dead
-
-    enemy.hp -= amount;
-    
-    SoundEngine.hit();
-    
-    // Update HP bar
-    const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
-    enemy.hpFill.style.width = `${hpRatio * 100}%`;
-
-    // Damage Text
-    const rect = els.world.getBoundingClientRect();
-    createFloatingText(enemy.x + rect.left, enemy.y + rect.top - 20, amount, isCrit ? 'crit' : 'damage');
-
-    // Hit animation
-    enemy.element.classList.remove('hit');
-    void enemy.element.offsetWidth; // Reflow
-    enemy.element.classList.add('hit');
-
-    if (enemy.hp <= 0) {
-        killEnemy(enemy);
-    }
-}
-
-function killEnemy(enemy) {
-    enemy.element.classList.add('dying');
-    
-    // Reward points
-    let pointsEarned = 1 + Math.floor(state.level * 0.5);
-    if (enemy.isBoss) pointsEarned *= 10;
-    if (enemy.isFinalBoss) pointsEarned *= 100;
-
-    state.points += pointsEarned;
-    state.enemiesDefeatedInLevel++;
-
-    SoundEngine.coin();
-
-    // Show points
-    const rect = els.world.getBoundingClientRect();
-    createFloatingText(enemy.x + rect.left, enemy.y + rect.top, `+${pointsEarned}💎`, 'points');
-
-    updateUI();
-
-    // Check level progression
-    if (enemy.isFinalBoss) {
-        winGame();
-    } else if (enemy.isBoss || state.enemiesDefeatedInLevel >= state.enemiesRequiredForNextLevel) {
-        levelUp();
-    }
-
-    // Cleanup after animation
-    setTimeout(() => {
-        if (enemy.element && enemy.element.parentNode) {
-            enemy.element.remove();
-        }
-        state.enemies = state.enemies.filter(e => e.id !== enemy.id);
-    }, 400);
-}
-
-function levelUp() {
-    state.level++;
-    state.enemiesDefeatedInLevel = 0;
-    
-    // Auto heal a tiny bit on level up
-    healPlayer(Math.floor(state.player.maxHp * 0.2));
-    
-    // Level up visual effect
-    const rect = els.world.getBoundingClientRect();
-    createFloatingText(state.heroPosition.x + rect.left, state.heroPosition.y + rect.top - 50, "LEVEL UP!", "points");
-    
-    // Check for Rescue
-    if (state.level % 5 === 0) {
-        const ally = RESCUED_POOL[Math.floor(Math.random() * RESCUED_POOL.length)];
-        state.rescued.push(ally);
-        
-        setTimeout(() => {
-            createFloatingText(state.heroPosition.x + rect.left, state.heroPosition.y + rect.top - 80, `Rescued ${ally}!`, "points");
-            updateRescuedUI(true); // new ally animation
-        }, 500); // slightly after level up text
-        
-        SoundEngine.coin(); // generic happy ping for rescue
-    }
-    
-    SoundEngine.levelUp();
-    
-    updateUI();
-
-    // Small delay before next wave or continue spawning immediately if more are needed
-}
-
-function damagePlayer(amount) {
-    state.player.hp -= amount;
-    
-    // Screen shake / flash
-    els.world.style.transform = `translate(${Math.random()*10 - 5}px, ${Math.random()*10 - 5}px)`;
-    setTimeout(() => els.world.style.transform = 'none', 50);
-    
-    // Damage text
-    const rect = els.world.getBoundingClientRect();
-    createFloatingText(state.heroPosition.x + rect.left, state.heroPosition.y + rect.top - 20, `-${amount}`, 'crit'); // Use crit style for red
-
-    if (state.player.hp <= 0) {
-        state.player.hp = 0;
-        gameOver();
-    }
-    updateUI();
-}
-
-function healPlayer(amount) {
-    state.player.hp = Math.min(state.player.maxHp, state.player.hp + amount);
-    
-    // Heal text
-    const rect = els.world.getBoundingClientRect();
-    createFloatingText(state.heroPosition.x + rect.left, state.heroPosition.y + rect.top - 20, `+${Math.floor(amount)}`, 'heal');
-    
-    updateUI();
-}
-
-function createFloatingText(x, y, text, type) {
-    const el = document.createElement('div');
-    el.className = `floating-text ${type}`;
-    el.innerText = text;
-    
-    // Randomize initial position slightly
-    const offsetX = (Math.random() - 0.5) * 40;
-    const offsetY = (Math.random() - 0.5) * 20;
-    
-    el.style.left = `${x + offsetX}px`;
-    el.style.top = `${y + offsetY}px`;
-    
-    els.textLayer.appendChild(el);
-    
-    // Cleanup
-    setTimeout(() => {
-        if (el.parentNode) el.remove();
-    }, 800);
-}
-
-// --- UPGRADES & STORE ---
-function buyUpgrade(type) {
-    const upg = state.upgrades[type];
-    if (state.points >= upg.cost) {
-        state.points -= upg.cost;
-        
-        upg.level++;
-        upg.cost = Math.floor(upg.cost * upg.costMult);
-        
-        // Apply effect
-        switch(type) {
-            case 'damage':
-                state.player.damage = Math.floor(state.player.damage * upg.mult);
-                break;
-            case 'health':
-                const oldMax = state.player.maxHp;
-                state.player.maxHp = Math.floor(state.player.maxHp * upg.mult);
-                // Heal the difference
-                state.player.hp += (state.player.maxHp - oldMax);
-                break;
-            case 'speed':
-                state.player.attackSpeed = Math.max(100, Math.floor(state.player.attackSpeed * upg.mult)); // Cap at 100ms
-                break;
-        }
-        
-        SoundEngine.upgrade();
-        
-        updateUI();
-    }
-}
-
-function updateRescuedUI(isNew = false) {
-    if (!els.hud.rescuedContainer) return;
-    els.hud.rescuedContainer.innerHTML = '';
-    state.rescued.forEach((ally, i) => {
-        const span = document.createElement('span');
-        span.innerText = ally;
-        // if this is the last one in the list and it's a new rescue, gently animate it
-        if (isNew && i === state.rescued.length - 1) {
-            span.className = 'new-ally';
-        }
-        els.hud.rescuedContainer.appendChild(span);
-    });
-}
-
-// --- UI UPDATES ---
-function updateUI() {
-    // Top HUD
-    els.hud.healthText.innerText = `${Math.floor(state.player.hp)}/${Math.floor(state.player.maxHp)}`;
-    els.hud.healthBar.style.width = `${(state.player.hp / state.player.maxHp) * 100}%`;
-    
-    els.hud.levelDisplay.innerText = state.level;
-    const progress = state.level % 10 === 0 ? 100 : (state.enemiesDefeatedInLevel / state.enemiesRequiredForNextLevel) * 100;
-    els.hud.levelProgress.style.width = `${Math.min(100, progress)}%`;
-    
-    els.hud.pointsDisplay.innerText = state.points;
-    
-    // Store Buttons Configuration
-    const updateBtn = (btn, upg, costEl, lvlEl) => {
-        costEl.innerText = upg.cost;
-        lvlEl.innerText = `Lv.${upg.level}`;
-        if (state.points >= upg.cost) {
-            btn.disabled = false;
-        } else {
-            btn.disabled = true;
-        }
-    };
-    
-    updateBtn(els.upgrades.dmgBtn, state.upgrades.damage, els.upgrades.dmgCost, els.upgrades.dmgLvl);
-    updateBtn(els.upgrades.hpBtn, state.upgrades.health, els.upgrades.hpCost, els.upgrades.hpLvl);
-    updateBtn(els.upgrades.spdBtn, state.upgrades.speed, els.upgrades.spdCost, els.upgrades.spdLvl);
-    
-    els.upgrades.healBtn.disabled = state.points < 5 || state.player.hp >= state.player.maxHp;
-}
-
-// --- END GAME CONDITIONS ---
-function gameOver() {
-    state.isRunning = false;
-    
-    SoundEngine.gameOver();
-    
-    // Play dramatic death animation on hero
-    if (state.heroElement) {
-        state.heroElement.classList.add('dying');
-    }
-    
-    // Wait for death animation to mostly finish before showing screen
-    setTimeout(() => {
-        els.screens.game.classList.remove('active');
-        els.screens.game.classList.add('hidden');
-        
-        // Reset specific game over UI styles (incase winGame changed them)
-        const titleEl = document.getElementById('end-title');
-        titleEl.innerText = "GAME OVER";
-        titleEl.classList.add('game-over-text');
-        
-        document.getElementById('death-skull').style.display = 'block';
-        document.getElementById('final-level').innerText = state.level;
-        
-        els.screens.end.classList.add('blood-tint');
-        els.screens.end.classList.remove('hidden');
-        els.screens.end.classList.add('active');
-    }, 1200);
-}
-
-function winGame() {
-    state.isRunning = false;
-    els.screens.game.classList.remove('active');
-    els.screens.game.classList.add('hidden');
-    
-    const titleEl = document.getElementById('end-title');
-    titleEl.innerText = "VICTORY!";
-    titleEl.classList.remove('game-over-text'); // Remove red styles
-    titleEl.style.color = "#00ff88"; // Success green text
-    titleEl.style.textShadow = "0 0 20px #00ff88";
-    titleEl.style.webkitTextFillColor = "#00ff88"; // override webkit 
-    
-    document.getElementById('death-skull').style.display = 'none';
-    document.getElementById('end-subtitle').innerText = "You defeated the Level 100 Boss!";
-    
-    els.screens.end.classList.remove('blood-tint');
-    els.screens.end.classList.remove('hidden');
-    els.screens.end.classList.add('active');
-}
-
-// Initialize on load
-window.addEventListener('load', init);
