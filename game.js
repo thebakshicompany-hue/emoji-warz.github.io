@@ -1,27 +1,27 @@
 // ========== CONFIG ==========
-const ENEMY_EMOJIS = ['💀','☠️','🕷️','🦂','🦇','🩸','🔪','🧨','💣','☣️','☢️'];
-const BOSS_EMOJIS = ['👹','👺','🐲','🌋','🌪️','👁️','🪐'];
-const FINAL_BOSS_EMOJI = '👑☠️👑';
-const RESCUED_POOL = ['🐶','🐱','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🐤','🐰','🐢','🦖','🦄','🐝','🐙','🐬','🦀'];
+const ENEMY_EMOJIS = ['skull', 'ghost', 'biohazard', 'radiation', 'bomb', 'flame', 'crosshair', 'target', 'axe', 'sword'];
+const BOSS_EMOJIS = ['skull', 'flame', 'tornado', 'eye', 'zap'];
+const FINAL_BOSS_EMOJI = 'crown';
+const RESCUED_POOL = ['user', 'users', 'shield-check', 'swords'];
 const POWERUP_TYPES = [
-    { emoji: '❤️', type: 'health', label: '+HP' },
-    { emoji: '⚡', type: 'speed', label: 'SPEED!' },
-    { emoji: '💪', type: 'damage', label: 'POWER!' },
-    { emoji: '🛡️', type: 'shield', label: 'SHIELD!' }
+    { emoji: 'heart', type: 'health', label: '+HP' },
+    { emoji: 'zap', type: 'speed', label: 'SPEED!' },
+    { emoji: 'swords', type: 'damage', label: 'POWER!' },
+    { emoji: 'shield', type: 'shield', label: 'SHIELD!' }
 ];
 const HERO_CLASSES = {
-    balanced: { emoji:'⚔️', maxHp:100, hp:100, damage:10, attackSpeed:800, critChance:0.1, speed:3, range:100, hpRegen:0.5, abilityCD:8000, abilityIcon:'🌀', projEmoji:null },
-    tank:     { emoji:'🛡️', maxHp:250, hp:250, damage:12, attackSpeed:1200, critChance:0.05, speed:2, range:80, hpRegen:2, abilityCD:10000, abilityIcon:'🛡️', projEmoji:null },
-    assassin: { emoji:'🗡️', maxHp:60, hp:60, damage:15, attackSpeed:500, critChance:0.3, speed:4.5, range:80, hpRegen:0, abilityCD:6000, abilityIcon:'👤', projEmoji:null },
-    mage:     { emoji:'🧙', maxHp:80, hp:80, damage:25, attackSpeed:1000, critChance:0.1, speed:2.5, range:350, hpRegen:0.3, abilityCD:7000, abilityIcon:'☄️', projEmoji:'🔥' },
-    archer:   { emoji:'🏹', maxHp:90, hp:90, damage:18, attackSpeed:600, critChance:0.2, speed:3.5, range:400, hpRegen:0, abilityCD:8000, abilityIcon:'🌧️', projEmoji:'➳' }
+    balanced: { emoji:'sword', maxHp:100, hp:100, damage:10, attackSpeed:800, critChance:0.1, speed:3, range:100, hpRegen:0.5, abilityCD:8000, abilityIcon:'zap', projEmoji:null },
+    tank:     { emoji:'shield', maxHp:250, hp:250, damage:12, attackSpeed:1200, critChance:0.05, speed:2, range:80, hpRegen:2, abilityCD:10000, abilityIcon:'shield-alert', projEmoji:null },
+    assassin: { emoji:'scissors', maxHp:60, hp:60, damage:15, attackSpeed:500, critChance:0.3, speed:4.5, range:80, hpRegen:0, abilityCD:6000, abilityIcon:'user-x', projEmoji:null },
+    mage:     { emoji:'eye', maxHp:80, hp:80, damage:25, attackSpeed:1000, critChance:0.1, speed:2.5, range:350, hpRegen:0.3, abilityCD:7000, abilityIcon:'flame', projEmoji:'sparkles' },
+    archer:   { emoji:'crosshair', maxHp:90, hp:90, damage:18, attackSpeed:600, critChance:0.2, speed:3.5, range:400, hpRegen:0, abilityCD:8000, abilityIcon:'target', projEmoji:'arrow-right' }
 };
 const MARKET_ITEMS = {
     skins: [
-        { id:'skin_base', name:'Default', type:'skin', cost:0, emoji:'⚔️' },
-        { id:'skin_ninja', name:'Shadow Ninja', type:'skin', cost:500, emoji:'🥷' },
-        { id:'skin_demon', name:'Demon Lord', type:'skin', cost:1500, emoji:'👺' },
-        { id:'skin_mech', name:'Cyborg', type:'skin', cost:3000, emoji:'🤖' }
+        { id:'skin_base', name:'Default', type:'skin', cost:0, emoji:'sword' },
+        { id:'skin_ninja', name:'Wraith', type:'skin', cost:500, emoji:'ghost' },
+        { id:'skin_demon', name:'Hellspawn', type:'skin', cost:1500, emoji:'skull' },
+        { id:'skin_mech', name:'Dreadnought', type:'skin', cost:3000, emoji:'cpu' }
     ],
     auras: [
         { id:'aura_none', name:'No Aura', type:'aura', cost:0, class:'' },
@@ -29,15 +29,22 @@ const MARKET_ITEMS = {
         { id:'aura_void', name:'Void Aura', type:'aura', cost:2500, class:'aura-void' }
     ]
 };
-const STORY_LINES = ["The Emoji Kingdom lived in harmony...","Until the sinister forces of Darkness emerged.","Corrupted emojis now ravage our lands.","The ultimate evil, King Devil 👑😈👑, awaits at Level 100.","Will you be the hero we need?"];
+const STORY_LINES = [
+    "War came without warning.",
+    "The dead rose. The sky turned black.",
+    "Every kingdom fell. Every army was slaughtered.",
+    "One warrior remains. One last chance.",
+    "Kill or be killed. There is no mercy here."
+];
 
 // ========== STATE ==========
 let state = {
-    isRunning: false, level: 1, points: 0, enemiesDefeatedInLevel: 0, enemiesRequiredForNextLevel: 5,
+    isRunning: false, level: 1, isGuest: false, points: 0, enemiesDefeatedInLevel: 0, enemiesRequiredForNextLevel: 5,
     lastTick: 0, lastAttackTime: 0, totalLifetimePoints: 0, unlockedItems: ['skin_base','aura_none'],
     equippedSkin: 'skin_base', equippedAura: 'aura_none',
     player: { ...HERO_CLASSES['balanced'] }, selectedClass: 'balanced',
     heroElement: null, heroPosition: { x: 100, y: 200 }, heroTarget: { x: 100, y: 200 },
+    heroVelocity: { x: 0, y: 0 }, // Momentum
     enemies: [], rescued: [], projectiles: [], powerups: [],
     upgrades: {
         damage: { level:1, cost:10, baseCost:10, mult:1.5, costMult:1.5 },
@@ -48,11 +55,15 @@ let state = {
     joystickActive: false, joystickDir: { x:0, y:0 }, keys: {},
     attackHeld: false, lastManualAttack: 0,
     // Combat
-    combo: 0, lastComboHit: 0, comboMult: 1,
+    combo: 0, lastComboHit: 0, comboMult: 1, comboSwing: 0,
     isDodging: false, dodgeCooldown: 0, lastDodgeTime: 0,
     abilityCooldown: 0, lastAbilityTime: 0,
     activeBuffs: [],
-    waveTimer: 0, waveTimerMax: 0, betweenWaves: false
+    waveTimer: 0, waveTimerMax: 0, betweenWaves: false,
+    // Rage
+    rageMode: false, rageOverlay: null,
+    // Trails
+    lastTrailTime: 0
 };
 
 // ========== POCKETBASE ==========
@@ -103,7 +114,7 @@ const els = {
     buffs: $('active-buffs'),
     wave: { timer:$('wave-timer'), countdown:$('wave-countdown') },
     joystick: { zone:$('joystick-zone'), base:$('joystick-base'), thumb:$('joystick-thumb') },
-    buttons: { attack:$('attack-btn'), dodge:$('dodge-btn'), ability:$('ability-btn'), abilityIcon:$('ability-icon'), dodgeCD:$('dodge-cooldown-overlay'), abilityCD:$('ability-cooldown-overlay'), login:$('login-btn'), register:$('register-btn'), goToRegister:$('go-to-register'), goToLogin:$('go-to-login'), start:$('start-btn'), load:$('load-btn'), save:$('save-btn'), skipStory:$('skip-btn'), restart:$('restart-btn'), marketStart:$('marketplace-btn-start'), marketEnd:$('marketplace-btn-end'), closeMarket:$('close-marketplace-btn'), saveQuit:$('save-quit-btn'), storeToggle:$('store-toggle-btn'), storeClose:$('close-store-btn') }
+    buttons: { guest:$('guest-btn'), skip100:$('skip-100-btn'), attack:$('attack-btn'), dodge:$('dodge-btn'), ability:$('ability-btn'), abilityIcon:$('ability-icon'), dodgeCD:$('dodge-cooldown-overlay'), abilityCD:$('ability-cooldown-overlay'), login:$('login-btn'), register:$('register-btn'), goToRegister:$('go-to-register'), goToLogin:$('go-to-login'), start:$('start-btn'), load:$('load-btn'), save:$('save-btn'), skipStory:$('skip-btn'), restart:$('restart-btn'), marketStart:$('marketplace-btn-start'), marketEnd:$('marketplace-btn-end'), closeMarket:$('close-marketplace-btn'), saveQuit:$('save-quit-btn'), storeToggle:$('store-toggle-btn'), storeClose:$('close-store-btn') }
 };
 
 // ========== INIT ==========
@@ -120,11 +131,13 @@ function bindEvents() {
     // Auth
     els.buttons.login.addEventListener('click', handleLogin);
     els.buttons.register.addEventListener('click', handleRegistration);
+    els.buttons.guest.addEventListener('click', () => { state.isGuest = true; showScreen('start'); });
     els.buttons.goToRegister.addEventListener('click', () => { showScreen('register'); clearAuthErrors(); });
     els.buttons.goToLogin.addEventListener('click', () => { showScreen('login'); clearAuthErrors(); });
 
     // Nav
-    els.buttons.start.addEventListener('click', showStoryScreen);
+    els.buttons.start.addEventListener('click', () => { state.level = 1; showStoryScreen(); });
+    els.buttons.skip100.addEventListener('click', () => { state.level = 100; showStoryScreen(); });
     els.buttons.load.addEventListener('click', loadGame);
     els.buttons.save.addEventListener('click', saveGame);
     els.buttons.skipStory.addEventListener('click', () => { clearTimeout(typeWriterTimeout); showScreen('charSelect'); });
@@ -280,8 +293,22 @@ async function handleRegistration() {
 // ========== SCREEN MANAGEMENT ==========
 function showScreen(name) {
     Object.entries(els.screens).forEach(([k, s]) => {
-        if (k === name) { s.classList.remove('hidden'); s.classList.add('active'); }
-        else { s.classList.remove('active'); s.classList.add('hidden'); }
+        if (k === name) {
+            s.classList.remove('hidden');
+            s.classList.add('active');
+            if (window.anime) {
+                anime({
+                    targets: s,
+                    opacity: [0, 1],
+                    scale: [1.05, 1],
+                    duration: 800,
+                    easing: 'easeOutQuart'
+                });
+            }
+        } else {
+            s.classList.remove('active');
+            s.classList.add('hidden');
+        }
     });
 }
 
@@ -308,14 +335,16 @@ function startGame(isLoading = false) {
     if (!isLoading) {
         const worldRect = els.world.getBoundingClientRect();
         Object.assign(state, {
-            isRunning: true, level: 1, enemiesDefeatedInLevel: 0, enemiesRequiredForNextLevel: 5,
+            isRunning: true, enemiesDefeatedInLevel: 0, enemiesRequiredForNextLevel: 5,
             enemies: [], rescued: [], projectiles: [], powerups: [],
             player: { ...HERO_CLASSES[state.selectedClass] },
             heroPosition: { x: (worldRect.width||200)/2, y: (worldRect.height||300)/2 },
             heroTarget: { x: (worldRect.width||200)/2, y: (worldRect.height||300)/2 },
-            combo: 0, lastComboHit: 0, comboMult: 1, activeBuffs: [],
+            heroVelocity: { x: 0, y: 0 },
+            combo: 0, lastComboHit: 0, comboMult: 1, comboSwing: 0, activeBuffs: [],
             isDodging: false, dodgeCooldown: 0, lastDodgeTime: 0,
-            abilityCooldown: 0, lastAbilityTime: 0, betweenWaves: false, waveTimer: 0
+            abilityCooldown: 0, lastAbilityTime: 0, betweenWaves: false, waveTimer: 0,
+            rageMode: false, lastTrailTime: 0
         });
         state.upgrades = {
             damage: { level:1, cost:10, baseCost:10, mult:1.5, costMult:1.5 },
@@ -324,11 +353,22 @@ function startGame(isLoading = false) {
         };
     } else {
         state.isRunning = true; state.enemies = []; state.projectiles = []; state.powerups = [];
+        state.heroVelocity = { x: 0, y: 0 }; state.rageMode = false;
     }
 
-    els.world.innerHTML = '<div id="battleground-elements"></div><div id="damage-text-layer"></div>';
+    els.world.innerHTML = '<canvas id="weather-canvas"></canvas><div id="atmosphere-layer"></div><div id="cinematic-vignette"></div><canvas id="particle-canvas"></canvas><div id="rage-overlay"></div><div id="fps-counter">-- FPS</div><div id="battleground-elements"></div><div id="damage-text-layer"></div><div id="letterbox-top"></div><div id="letterbox-bottom"></div><div id="dialogue-box"><div id="dialogue-speaker" class="dialogue-speaker"></div><div id="dialogue-text" class="dialogue-text"></div><div class="dialogue-prompt">TAP TO CONTINUE \u25b6</div></div>';
     els.textLayer = document.getElementById('damage-text-layer');
-    els.buttons.abilityIcon.innerText = state.player.abilityIcon || '🌀';
+    state.rageOverlay = document.getElementById('rage-overlay');
+    els.buttons.abilityIcon.innerText = state.player.abilityIcon || '\ud83c\udf00';
+
+    // Init all systems
+    ParticleEngine.init();
+    Camera.init(els.world);
+    FPSCounter.init();
+    Dialogue.init();
+    Letterbox.init();
+    Weather.init();
+    updateWeatherForLevel(state.level);
 
     generateBattleground();
     createHero();
@@ -343,12 +383,32 @@ function generateBattleground() {
     const bg = document.getElementById('battleground-elements');
     if (!bg) return;
     const wr = els.world.getBoundingClientRect();
-    for (let i = 0; i < 15; i++) {
+    const w = wr.width || 300, h = wr.height || 400;
+    // Blood stains
+    for (let i = 0; i < 8; i++) {
         const el = document.createElement('div');
-        el.className = Math.random() > 0.5 ? 'bg-crater' : 'bg-scorch';
-        el.style.left = `${Math.random()*(wr.width||300)}px`;
-        el.style.top = `${Math.random()*(wr.height||400)}px`;
-        el.style.transform = `translate(-50%,-50%) scale(${0.5+Math.random()}) rotate(${Math.random()*360}deg)`;
+        el.style.cssText = `position:absolute;width:${15+Math.random()*30}px;height:${10+Math.random()*20}px;background:rgba(60,0,0,${0.1+Math.random()*0.15});border-radius:50%;left:${Math.random()*w}px;top:${Math.random()*h}px;transform:rotate(${Math.random()*360}deg);filter:blur(3px);`;
+        bg.appendChild(el);
+    }
+    // Cracks
+    for (let i = 0; i < 5; i++) {
+        const el = document.createElement('div');
+        el.style.cssText = `position:absolute;width:${40+Math.random()*80}px;height:1px;background:rgba(40,20,10,0.3);left:${Math.random()*w}px;top:${Math.random()*h}px;transform:rotate(${Math.random()*180}deg);box-shadow:0 0 3px rgba(30,10,0,0.2);`;
+        bg.appendChild(el);
+    }
+    // Weapon debris
+    const debris = ['🗡️','⚔️','🛡️','💀','🦴','⛓️'];
+    for (let i = 0; i < 4; i++) {
+        const el = document.createElement('div');
+        el.style.cssText = `position:absolute;font-size:${10+Math.random()*8}px;opacity:${0.08+Math.random()*0.07};left:${Math.random()*w}px;top:${Math.random()*h}px;transform:rotate(${Math.random()*360}deg);filter:grayscale(1) brightness(0.4);pointer-events:none;`;
+        el.innerText = debris[Math.floor(Math.random()*debris.length)];
+        bg.appendChild(el);
+    }
+    // Scorch marks
+    for (let i = 0; i < 4; i++) {
+        const el = document.createElement('div');
+        const size = 20 + Math.random() * 40;
+        el.style.cssText = `position:absolute;width:${size}px;height:${size}px;background:radial-gradient(circle,rgba(20,10,0,0.15) 0%,transparent 70%);border-radius:50%;left:${Math.random()*w}px;top:${Math.random()*h}px;`;
         bg.appendChild(el);
     }
 }
@@ -362,8 +422,14 @@ function resetGame() {
 // ========== GAME LOOP ==========
 function gameLoop(t) {
     if (!state.isRunning) return;
-    const dt = Math.min(t - state.lastTick, 50); // Cap delta for tab-switch
+    const rawDt = Math.min(t - state.lastTick, 50);
     state.lastTick = t;
+
+    // Apply time scale (hitlag / slow-mo)
+    TimeScale.update();
+    const dt = rawDt * TimeScale.get();
+
+    FPSCounter.tick();
 
     moveHero(dt);
     handleAttack(t);
@@ -373,6 +439,8 @@ function gameLoop(t) {
     updateCombo(t);
     updateBuffs(t);
     updateCooldowns(t);
+    updateRageMode();
+    if (typeof updateHazards === 'function') updateHazards(dt);
 
     // HP Regen
     if (state.player.hpRegen > 0 && state.player.hp < state.player.maxHp && state.player.hp > 0) {
@@ -397,6 +465,11 @@ function gameLoop(t) {
         }
     }
 
+    // Physics systems
+    Camera.update(dt);
+    ParticleEngine.update(dt);
+    Weather.update(dt);
+
     requestAnimationFrame(gameLoop);
 }
 
@@ -405,60 +478,101 @@ function createHero() {
     if (state.heroElement) state.heroElement.remove();
     const hero = document.createElement('div');
     hero.className = 'entity hero';
-    let emoji = state.player.emoji;
+    let iconName = state.player.emoji;
     const skin = MARKET_ITEMS.skins.find(s => s.id === state.equippedSkin);
-    if (skin && skin.id !== 'skin_base') emoji = skin.emoji;
-    hero.innerHTML = emoji;
+    if (skin && skin.id !== 'skin_base') iconName = skin.emoji;
+    hero.innerHTML = `<i data-lucide="${iconName}"></i>`;
     const aura = MARKET_ITEMS.auras.find(a => a.id === state.equippedAura);
     if (aura && aura.id !== 'aura_none') hero.classList.add(aura.class);
     els.world.appendChild(hero);
     state.heroElement = hero;
     updateHeroPos();
+    if (window.lucide) window.lucide.createIcons();
 }
 
 function updateHeroPos() {
     if (!state.heroElement) return;
-    state.heroElement.style.left = `${state.heroPosition.x - 30}px`;
-    state.heroElement.style.top = `${state.heroPosition.y - 30}px`;
+    // GPU-composited positioning via transform3d
+    state.heroElement.style.transform = `translate3d(${state.heroPosition.x - 30}px, ${state.heroPosition.y - 30}px, 0)`;
+    state.heroElement.style.left = '0'; state.heroElement.style.top = '0';
 }
 
 function moveHero(dt) {
     if (!state.heroElement || state.isDodging) return;
     const worldRect = els.world.getBoundingClientRect();
+    const accel = 0.6; // Acceleration
+    const friction = 0.85; // Deceleration friction
+    const maxSpeed = state.player.speed * 1.8;
 
-    let dx = 0, dy = 0;
+    let inputX = 0, inputY = 0;
     // Joystick
-    if (state.joystickActive) { dx = state.joystickDir.x; dy = state.joystickDir.y; }
+    if (state.joystickActive) { inputX = state.joystickDir.x; inputY = state.joystickDir.y; }
     // Keyboard
-    if (state.keys['w'] || state.keys['arrowup']) dy -= 1;
-    if (state.keys['s'] || state.keys['arrowdown']) dy += 1;
-    if (state.keys['a'] || state.keys['arrowleft']) dx -= 1;
-    if (state.keys['d'] || state.keys['arrowright']) dx += 1;
+    if (state.keys['w'] || state.keys['arrowup']) inputY -= 1;
+    if (state.keys['s'] || state.keys['arrowdown']) inputY += 1;
+    if (state.keys['a'] || state.keys['arrowleft']) inputX -= 1;
+    if (state.keys['d'] || state.keys['arrowright']) inputX += 1;
 
-    if (dx !== 0 || dy !== 0) {
-        const len = Math.sqrt(dx*dx + dy*dy);
-        const speed = state.player.speed * (dt / 16);
-        state.heroPosition.x += (dx/len) * speed;
-        state.heroPosition.y += (dy/len) * speed;
-        // Clamp
-        state.heroPosition.x = Math.max(20, Math.min(worldRect.width - 20, state.heroPosition.x));
-        state.heroPosition.y = Math.max(20, Math.min(worldRect.height - 20, state.heroPosition.y));
-        updateHeroPos();
-        if (state.player.speed >= 3 && Math.random() < 0.15) createDashTrail(state.heroPosition.x, state.heroPosition.y);
+    if (inputX !== 0 || inputY !== 0) {
+        const len = Math.sqrt(inputX*inputX + inputY*inputY);
+        // Apply acceleration to velocity
+        state.heroVelocity.x += (inputX/len) * accel * (dt / 16);
+        state.heroVelocity.y += (inputY/len) * accel * (dt / 16);
+        // Clamp speed
+        const speed = Math.sqrt(state.heroVelocity.x**2 + state.heroVelocity.y**2);
+        if (speed > maxSpeed) {
+            state.heroVelocity.x = (state.heroVelocity.x/speed) * maxSpeed;
+            state.heroVelocity.y = (state.heroVelocity.y/speed) * maxSpeed;
+        }
     } else {
         // Click-to-move fallback
         const tdx = state.heroTarget.x - state.heroPosition.x;
         const tdy = state.heroTarget.y - state.heroPosition.y;
         const dist = Math.sqrt(tdx*tdx + tdy*tdy);
         if (dist > 5) {
-            const moveDist = state.player.speed * (dt/16);
-            const ratio = Math.min(moveDist/dist, 1);
-            state.heroPosition.x += tdx * ratio;
-            state.heroPosition.y += tdy * ratio;
-            state.heroPosition.x = Math.max(20, Math.min(worldRect.width - 20, state.heroPosition.x));
-            state.heroPosition.y = Math.max(20, Math.min(worldRect.height - 20, state.heroPosition.y));
-            updateHeroPos();
+            state.heroVelocity.x += (tdx/dist) * accel * (dt/16);
+            state.heroVelocity.y += (tdy/dist) * accel * (dt/16);
+            const speed = Math.sqrt(state.heroVelocity.x**2 + state.heroVelocity.y**2);
+            if (speed > maxSpeed) {
+                state.heroVelocity.x = (state.heroVelocity.x/speed) * maxSpeed;
+                state.heroVelocity.y = (state.heroVelocity.y/speed) * maxSpeed;
+            }
         }
+    }
+
+    // Apply friction
+    state.heroVelocity.x *= friction;
+    state.heroVelocity.y *= friction;
+
+    // Apply velocity to position
+    state.heroPosition.x += state.heroVelocity.x * (dt/16);
+    state.heroPosition.y += state.heroVelocity.y * (dt/16);
+
+    // Clamp to world bounds
+    state.heroPosition.x = Math.max(20, Math.min(worldRect.width - 20, state.heroPosition.x));
+    state.heroPosition.y = Math.max(20, Math.min(worldRect.height - 20, state.heroPosition.y));
+    updateHeroPos();
+
+    // Momentum trails when moving fast
+    const curSpeed = Math.sqrt(state.heroVelocity.x**2 + state.heroVelocity.y**2);
+    const now = performance.now();
+    if (curSpeed > 2 && now - state.lastTrailTime > 60) {
+        state.lastTrailTime = now;
+        ParticleEngine.fireTrail(state.heroPosition.x, state.heroPosition.y);
+    }
+}
+
+function updateRageMode() {
+    const hpRatio = state.player.hp / state.player.maxHp;
+    const shouldRage = hpRatio > 0 && hpRatio <= 0.25;
+    if (shouldRage && !state.rageMode) {
+        state.rageMode = true;
+        if (state.rageOverlay) state.rageOverlay.classList.add('active');
+        if (state.heroElement) state.heroElement.classList.add('rage-mode');
+    } else if (!shouldRage && state.rageMode) {
+        state.rageMode = false;
+        if (state.rageOverlay) state.rageOverlay.classList.remove('active');
+        if (state.heroElement) state.heroElement.classList.remove('rage-mode');
     }
 }
 

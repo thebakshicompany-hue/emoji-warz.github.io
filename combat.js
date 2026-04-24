@@ -9,6 +9,7 @@ function performDodge() {
     state.isDodging = true;
     state.lastDodgeTime = now;
     SFX.dodge();
+    Haptics.light();
 
     // Dash direction
     let dx = state.joystickDir.x, dy = state.joystickDir.y;
@@ -22,17 +23,34 @@ function performDodge() {
     const dashDist = 120;
     const worldRect = els.world.getBoundingClientRect();
 
-    // Ghost trails during dash
+    // Ghost trails + particle dodge trail
     for (let i = 0; i < 4; i++) {
-        setTimeout(() => createDashTrail(state.heroPosition.x, state.heroPosition.y), i * 50);
+        setTimeout(() => {
+            createDashTrail(state.heroPosition.x, state.heroPosition.y);
+            ParticleEngine.dodgeTrail(state.heroPosition.x, state.heroPosition.y);
+        }, i * 50);
     }
 
-    state.heroPosition.x += (dx/len) * dashDist;
-    state.heroPosition.y += (dy/len) * dashDist;
-    state.heroPosition.x = Math.max(20, Math.min(worldRect.width - 20, state.heroPosition.x));
-    state.heroPosition.y = Math.max(20, Math.min(worldRect.height - 20, state.heroPosition.y));
+    const targetX = Math.max(20, Math.min(worldRect.width - 20, state.heroPosition.x + (dx/len) * dashDist));
+    const targetY = Math.max(20, Math.min(worldRect.height - 20, state.heroPosition.y + (dy/len) * dashDist));
+    
+    if (window.anime) {
+        anime({
+            targets: state.heroPosition,
+            x: targetX,
+            y: targetY,
+            duration: 300,
+            easing: 'easeOutExpo',
+            update: () => updateHeroPos()
+        });
+    } else {
+        state.heroPosition.x = targetX;
+        state.heroPosition.y = targetY;
+        updateHeroPos();
+    }
+    
     state.heroTarget = { ...state.heroPosition };
-    updateHeroPos();
+    state.heroVelocity = { x: (dx/len) * 8, y: (dy/len) * 8 }; // Momentum burst
 
     if (state.heroElement) state.heroElement.classList.add('invincible');
 
@@ -181,11 +199,20 @@ function handleAttack(time) {
         if (isCrit) SFX.crit(); else SFX.shoot();
     }
 
-    // Hero attack animation
+    // 3-hit combo swing animation
     if (state.heroElement) {
-        state.heroElement.classList.remove('attacking');
+        state.comboSwing = (state.comboSwing % 3) + 1;
+        state.heroElement.classList.remove('attacking', 'combo-1', 'combo-2', 'combo-3');
         void state.heroElement.offsetWidth;
-        state.heroElement.classList.add('attacking');
+        state.heroElement.classList.add(`combo-${state.comboSwing}`);
+    }
+
+    // Hitlag on crit
+    if (isCrit) {
+        TimeScale.set(0.15, 80);
+        Haptics.crit();
+    } else {
+        Haptics.light();
     }
 }
 
@@ -219,9 +246,11 @@ function autoAttackTick(time) {
 function fireProjectile(fromX, fromY, toX, toY, damage, isCrit = false) {
     const el = document.createElement('div');
     el.className = 'projectile';
-    el.innerText = state.player.projEmoji || '🔥';
+    const projIcon = state.player.projEmoji || 'flame';
+    el.innerHTML = `<i data-lucide="${projIcon}"></i>`;
     el.style.left = `${fromX}px`; el.style.top = `${fromY}px`;
     els.world.appendChild(el);
+    if (window.lucide) window.lucide.createIcons();
 
     const dx = toX - fromX, dy = toY - fromY;
     const dist = Math.sqrt(dx*dx + dy*dy);
@@ -265,18 +294,28 @@ function spawnWave() {
     if (count > 12) count = 12;
 
     const isBossLevel = state.level % 10 === 0;
-    const isFinalBoss = state.level === 100;
+    const isFinalBoss = state.level >= 1000;
     const isEliteLevel = state.level % 3 === 0 && !isBossLevel;
 
     if (isBossLevel || isFinalBoss) {
         showBossWarning(); count = 1;
+        // Cinematic boss entrance with conversation
+        const convo = getBossConversation(state.level);
+        state.isRunning = false; // Pause game during cutscene
         setTimeout(() => {
-            const crack = document.createElement('div');
-            crack.className = 'ground-crack'; crack.style.left = '50%'; crack.style.top = '150px';
-            els.world.appendChild(crack);
-            setTimeout(() => { if (crack.parentNode) crack.remove(); }, 3000);
-            triggerScreenShake('heavy');
-        }, 800);
+            Dialogue.play(convo, () => {
+                state.isRunning = true;
+                state.lastTick = performance.now();
+                const crack = document.createElement('div');
+                crack.className = 'ground-crack'; crack.style.left = '50%'; crack.style.top = '150px';
+                els.world.appendChild(crack);
+                setTimeout(() => { if (crack.parentNode) crack.remove(); }, 3000);
+                Camera.shake(15, 600);
+                ParticleEngine.bossEntrance(worldRect.width / 2, 150);
+                Haptics.heavy();
+                requestAnimationFrame(gameLoop);
+            });
+        }, 1500);
     }
 
     const worldRect = els.world.getBoundingClientRect();
@@ -322,7 +361,7 @@ function showBossWarning() {
 function createEnemy(data) {
     const el = document.createElement('div');
     el.className = `entity enemy ${data.isBoss ? 'boss' : ''} ${data.isFinalBoss ? 'final-boss' : ''} ${data.isElite ? 'elite' : ''}`;
-    el.innerHTML = data.emoji;
+    el.innerHTML = `<i data-lucide="${data.emoji}"></i>`;
 
     const hpC = document.createElement('div');
     hpC.className = `enemy-hp-container ${data.isBoss || data.isFinalBoss ? 'boss-hp-container' : ''}`;
@@ -352,12 +391,26 @@ function createEnemy(data) {
 
     state.enemies.push(obj);
     updateEnemyPos(obj);
+    if (window.lucide) window.lucide.createIcons();
+
+    // Anime.js spawn animation
+    if (window.anime) {
+        anime({
+            targets: el,
+            scale: [0, 1],
+            opacity: [0, 1],
+            duration: data.isBoss ? 1500 : 800,
+            elasticity: 600,
+            easing: 'easeOutElastic(1, .5)'
+        });
+    }
 }
 
 function updateEnemyPos(e) {
     const offset = e.isFinalBoss ? 60 : (e.isBoss ? 50 : 22);
-    e.element.style.left = `${e.x - offset}px`;
-    e.element.style.top = `${e.y - offset}px`;
+    // GPU-composited positioning
+    e.element.style.transform = `translate3d(${e.x - offset}px, ${e.y - offset}px, 0)`;
+    e.element.style.left = '0'; e.element.style.top = '0';
 }
 
 function updateEnemies(time, dt) {
@@ -375,8 +428,20 @@ function updateEnemies(time, dt) {
             updateEnemyPos(e);
         } else {
             if (time - e.lastAttackTime > e.attackDelay) {
+                // Telegraph danger zone before attacking
+                if (!e._telegraphed) {
+                    e._telegraphed = true;
+                    const tz = document.createElement('div');
+                    tz.className = 'danger-zone';
+                    const size = atkRange * 2.5;
+                    tz.style.width = `${size}px`; tz.style.height = `${size}px`;
+                    tz.style.left = `${e.x}px`; tz.style.top = `${e.y}px`;
+                    els.world.appendChild(tz);
+                    setTimeout(() => { if (tz.parentNode) tz.remove(); }, 500);
+                    ParticleEngine.spawnTelegraph(e.x, e.y, size/2, 400, 'rgba(255,0,0,0.3)');
+                }
+
                 if (!state.isDodging) {
-                    // Check shield buff
                     const shieldBuff = state.activeBuffs.findIndex(b => b.type === 'shield_hit');
                     if (shieldBuff >= 0) {
                         state.activeBuffs.splice(shieldBuff, 1);
@@ -387,8 +452,9 @@ function updateEnemies(time, dt) {
                     }
                 }
                 e.lastAttackTime = time;
-                e.element.style.transform = 'scale(1.15)';
-                setTimeout(() => { if (e.element) e.element.style.transform = ''; }, 100);
+                e._telegraphed = false;
+                e.element.style.transform += ' scale(1.15)';
+                setTimeout(() => { if (e.element) updateEnemyPos(e); }, 100);
             }
         }
     }
@@ -400,23 +466,57 @@ function updateEnemies(time, dt) {
 // ========== DAMAGE SYSTEM ==========
 function damageEnemy(enemy, amount, isCrit = false) {
     if (enemy.hp <= 0) return;
+
+    // Rage mode: 3x damage
+    if (state.rageMode) amount = Math.floor(amount * 3);
+
     enemy.hp -= amount;
     SFX.hit();
 
     enemy.hpFill.style.width = `${Math.max(0, enemy.hp/enemy.maxHp)*100}%`;
     createFloatingText(enemy.x, enemy.y - 15, amount, isCrit ? 'crit' : 'damage');
 
-    // Knockback
+    // Knockback with anime.js spring physics
     const dx = enemy.x - state.heroPosition.x, dy = enemy.y - state.heroPosition.y;
     const dist = Math.sqrt(dx*dx + dy*dy);
     if (dist > 0) {
-        const kb = isCrit ? 30 : 12;
+        const kb = isCrit ? 50 : 20;
         enemy.x += (dx/dist) * kb; enemy.y += (dy/dist) * kb;
-        updateEnemyPos(enemy);
+        
+        if (window.anime) {
+            const offset = enemy.isFinalBoss ? 60 : (enemy.isBoss ? 50 : 22);
+            anime({
+                targets: enemy.element,
+                translateX: enemy.x - offset,
+                translateY: enemy.y - offset,
+                duration: 600,
+                easing: 'easeOutElastic(1, .6)'
+            });
+        } else {
+            updateEnemyPos(enemy);
+        }
     }
 
-    triggerScreenShake(isCrit ? 'heavy' : 'light');
-    enemy.element.classList.remove('hit'); void enemy.element.offsetWidth; enemy.element.classList.add('hit');
+    // Particle effects + cinematic impact
+    if (isCrit) {
+        ParticleEngine.critFlash(enemy.x, enemy.y);
+        Camera.shake(8, 200);
+        cinematicImpact();
+    } else {
+        ParticleEngine.bloodBurst(enemy.x, enemy.y, dx, dy);
+        Camera.shake(3, 100);
+    }
+
+    // Stagger animation
+    enemy.element.classList.remove('hit', 'stagger');
+    void enemy.element.offsetWidth;
+    enemy.element.classList.add(isCrit ? 'stagger' : 'hit');
+
+    // Juggle physics: crits launch enemies upward briefly
+    if (isCrit && !enemy.isBoss && !enemy.isFinalBoss) {
+        enemy.element.classList.add('juggled');
+        setTimeout(() => enemy.element.classList.remove('juggled'), 300);
+    }
 
     // Combo
     state.combo++;
@@ -431,8 +531,20 @@ function damageEnemy(enemy, amount, isCrit = false) {
 }
 
 function killEnemy(enemy) {
-    enemy.element.classList.add('dying');
-    createBloodSplatter(enemy.x, enemy.y);
+    // Shatter death animation + particles
+    enemy.element.classList.add('shatter-death');
+    ParticleEngine.explosion(enemy.x, enemy.y, enemy.isBoss ? 2 : (enemy.isElite ? 1.5 : 1));
+    Camera.shake(enemy.isBoss ? 15 : 5, enemy.isBoss ? 400 : 150);
+    Haptics.medium();
+
+    // Execution finisher for bosses
+    if (enemy.isBoss || enemy.isFinalBoss) {
+        TimeScale.set(0.1, 500);
+        cinematicImpact();
+        cinematicKillcam();
+        ParticleEngine.deathShatter(enemy.x, enemy.y);
+        Haptics.heavy();
+    }
 
     let pts = 1 + Math.floor(state.level * 0.5);
     if (enemy.isBoss) pts *= 10;
@@ -445,7 +557,6 @@ function killEnemy(enemy) {
     SFX.coin();
     createFloatingText(enemy.x, enemy.y, `+${pts}💎`, 'points');
 
-    // Power-up drop
     if (Math.random() < 0.15 || enemy.isBoss || enemy.isElite) spawnPowerup(enemy.x, enemy.y);
 
     updateUI();
@@ -457,7 +568,7 @@ function killEnemy(enemy) {
     } else if (enemy.isBoss) {
         els.world.classList.add('arena-flash');
         setTimeout(() => els.world.classList.remove('arena-flash'), 300);
-        triggerScreenShake('heavy');
+        Camera.shake(20, 500);
         levelUp();
     } else if (state.enemiesDefeatedInLevel >= state.enemiesRequiredForNextLevel) {
         levelUp();
@@ -466,7 +577,7 @@ function killEnemy(enemy) {
     setTimeout(() => {
         if (enemy.element?.parentNode) enemy.element.remove();
         state.enemies = state.enemies.filter(e => e.id !== enemy.id);
-    }, 400);
+    }, 500);
 }
 
 function createBloodSplatter(x, y) {
@@ -481,15 +592,43 @@ function createBloodSplatter(x, y) {
 }
 
 function damagePlayer(amount) {
-    // Fortify shield buff reduces damage
+    if (!state.isRunning || state.player.hp <= 0) return;
+    
     if (state.activeBuffs.find(b => b.type === 'fortify')) amount = Math.floor(amount * 0.3);
-
-    state.player.hp -= amount;
-    els.world.style.transform = `translate(${Math.random()*8-4}px,${Math.random()*8-4}px)`;
-    setTimeout(() => els.world.style.transform = 'none', 50);
+    state.player.hp = Math.max(0, state.player.hp - amount);
+    
+    updateHealthUI();
+    triggerScreenShake('medium');
+    Haptics.medium();
+    
     createFloatingText(state.heroPosition.x, state.heroPosition.y - 15, `-${amount}`, 'crit');
-    if (state.player.hp <= 0) { state.player.hp = 0; gameOver(); }
-    updateUI();
+    ParticleEngine.bloodBurst(state.heroPosition.x, state.heroPosition.y, 0, -1);
+
+    // Anime.js HUD Damage Shake
+    if (window.anime) {
+        anime({
+            targets: '#hud',
+            translateX: [0, -12, 12, -12, 12, 0],
+            duration: 400,
+            easing: 'easeInOutQuad'
+        });
+        if (state.heroElement) {
+            anime({
+                targets: state.heroElement,
+                filter: ['brightness(1) contrast(1)', 'brightness(4) contrast(3)', 'brightness(1) contrast(1)'],
+                duration: 200,
+                easing: 'linear'
+            });
+        }
+    }
+
+    if (state.player.hp <= 0) {
+        Haptics.death();
+        ParticleEngine.deathShatter(state.heroPosition.x, state.heroPosition.y);
+        triggerScreenShake('heavy');
+        TimeScale.set(0.2, 800);
+        gameOver();
+    }
 }
 
 function healPlayer(amount) {
@@ -499,27 +638,77 @@ function healPlayer(amount) {
 }
 
 function levelUp() {
-    state.level++; state.enemiesDefeatedInLevel = 0;
-    healPlayer(Math.floor(state.player.maxHp * 0.2));
-    createFloatingText(state.heroPosition.x, state.heroPosition.y - 40, "LEVEL UP!", "points");
+    if (state.isGuest && state.level >= 100) {
+        guestLimitReached();
+        return;
+    }
+    state.level++;
+    state.enemiesDefeatedInLevel = 0;
+    state.enemiesRequiredForNextLevel = Math.min(100, 5 + state.level * 2);
+    
+    healPlayer(state.player.maxHp * 0.2);
+    ParticleEngine.levelUpBurst(state.heroPosition.x, state.heroPosition.y);
+    createFloatingText(state.heroPosition.x, state.heroPosition.y - 40, "LEVEL UP!", 'level-up');
+    
+    // Anime.js Level Up Shockwave
+    if (window.anime) {
+        anime({
+            targets: '#game-world',
+            filter: ['contrast(1.2) brightness(1.2)', 'contrast(2) brightness(2)', 'contrast(1.2) brightness(1.2)'],
+            duration: 600,
+            easing: 'easeOutQuart'
+        });
+    }
 
+    if (state.level % 10 === 0) {
+        Dialogue.show(state.level);
+        Weather.intensity = Math.min(1, Weather.intensity + 0.1);
+    }
+    updateUI();
+    
     if (state.level % 5 === 0) {
         const ally = RESCUED_POOL[Math.floor(Math.random() * RESCUED_POOL.length)];
         state.rescued.push(ally);
-        setTimeout(() => { createFloatingText(state.heroPosition.x, state.heroPosition.y - 60, `Rescued ${ally}!`, "points"); updateRescuedUI(true); }, 500);
+        updateRescuedUI(true);
         SFX.coin();
+        // Brief rescue dialogue
+        if (state.level <= 50 || state.level % 25 === 0) {
+            const lines = [
+                { speaker: ally + ' SURVIVOR', text: 'You came... I thought no one would come.' },
+                { speaker: 'HERO', text: 'Stay close. More of them are coming.' }
+            ];
+            state.isRunning = false;
+            setTimeout(() => {
+                Dialogue.play(lines, () => {
+                    state.isRunning = true;
+                    state.lastTick = performance.now();
+                    requestAnimationFrame(gameLoop);
+                });
+            }, 300);
+        } else {
+            createFloatingText(state.heroPosition.x, state.heroPosition.y - 60, `${ally} RESCUED`, "points");
+        }
     }
     SFX.levelUp();
+    ParticleEngine.levelUpBurst(state.heroPosition.x, state.heroPosition.y);
+    updateWeatherForLevel(state.level);
     updateUI();
+
+    // Spawn environmental hazards at higher levels
+    if (state.level >= 15 && state.level % 5 === 0) {
+        spawnEnvironmentHazard();
+    }
 }
 
 // ========== POWER-UPS ==========
 function spawnPowerup(x, y) {
     const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
     const el = document.createElement('div');
-    el.className = 'powerup'; el.innerText = type.emoji;
+    el.className = 'powerup'; 
+    el.innerHTML = `<i data-lucide="${type.emoji}"></i>`;
     el.style.left = `${x}px`; el.style.top = `${y}px`;
     els.world.appendChild(el);
+    if (window.lucide) window.lucide.createIcons();
     state.powerups.push({ el, x, y, type: type.type, label: type.label, life: 10000 });
 }
 
@@ -589,50 +778,136 @@ function updateBuffsUI() {
 }
 
 // ========== COMBO ==========
-function updateCombo(time) {
-    if (state.combo > 0 && time - state.lastComboHit > 3000) {
-        state.combo = 0; state.comboMult = 1; updateComboUI();
-    }
-}
-
 function updateComboUI() {
-    if (state.combo >= 3) {
-        els.combo.display.classList.remove('hidden');
-        els.combo.count.innerText = state.combo;
-        els.combo.mult.innerText = `x${state.comboMult}`;
+    const el = document.getElementById('combo-container');
+    const num = document.getElementById('combo-count');
+    const mult = document.getElementById('combo-mult');
+    if (!el || !num || !mult) return;
+
+    if (state.combo > 0) {
+        el.classList.add('active');
+        num.innerText = state.combo;
+        mult.innerText = `x${state.comboMult.toFixed(1)}`;
+        
+        // Anime.js Combo Punch
+        if (window.anime) {
+            anime({
+                targets: el,
+                scale: [1, 1.4, 1],
+                rotate: [0, anime.random(-5, 5), 0],
+                duration: 200,
+                easing: 'easeOutElastic(1, .6)'
+            });
+        }
     } else {
-        els.combo.display.classList.add('hidden');
+        el.classList.remove('active');
     }
 }
 
 function updateCooldowns(time) {
-    // Visual feedback is handled by CSS animations on the overlay
+    const abilityReady = (time - state.lastAbilityTime >= state.player.abilityCD);
+    const dodgeReady = (time - state.lastDodgeTime >= 2000); // 2s dodge cd
+
+    const abBtn = document.getElementById('ability-btn');
+    if (abBtn) {
+        if (abilityReady) {
+            if (!abBtn.classList.contains('ready')) {
+                abBtn.classList.add('ready');
+                if (window.anime) {
+                    anime({
+                        targets: abBtn,
+                        scale: [1, 1.15, 1],
+                        filter: ['brightness(1)', 'brightness(1.5)', 'brightness(1)'],
+                        duration: 800,
+                        loop: true,
+                        easing: 'easeInOutSine'
+                    });
+                }
+            }
+        } else {
+            abBtn.classList.remove('ready');
+            if (window.anime) anime.remove(abBtn);
+            abBtn.style.transform = 'scale(1)';
+            abBtn.style.filter = 'brightness(1)';
+        }
+    }
 }
 
 // ========== VISUAL FX ==========
 function createFloatingText(x, y, text, type) {
     const el = document.createElement('div');
     el.className = `floating-text ${type}`; el.innerText = text;
-    el.style.left = `${x + (Math.random()-0.5)*30}px`;
-    el.style.top = `${y + (Math.random()-0.5)*15}px`;
+    el.style.left = `${x + (Math.random()-0.5)*40}px`;
+    el.style.top = `${y}px`;
     els.textLayer.appendChild(el);
-    setTimeout(() => { if (el.parentNode) el.remove(); }, 800);
+
+    if (window.anime) {
+        anime({
+            targets: el,
+            translateY: [-20, -100],
+            opacity: [1, 0],
+            scale: [1, 1.2],
+            duration: 1000,
+            easing: 'easeOutExpo',
+            complete: () => el.remove()
+        });
+    } else {
+        setTimeout(() => { if (el.parentNode) el.remove(); }, 800);
+    }
 }
 
 function createImpactSlash(x, y, isCrit) {
     for (let i = 0; i < (isCrit ? 3 : 1); i++) {
         const s = document.createElement('div');
-        s.className = 'slash-effect'; s.style.left = `${x}px`; s.style.top = `${y}px`;
-        s.style.setProperty('--rot', `${Math.random()*360}deg`);
+        s.className = 'slash-effect'; 
+        s.style.left = `${x}px`; s.style.top = `${y}px`;
+        const rot = Math.random() * 360;
+        s.style.transform = `translate(-50%, -50%) rotate(${rot}deg) scaleX(0)`;
         els.textLayer.appendChild(s);
-        setTimeout(() => { if (s.parentNode) s.remove(); }, 200);
+
+        if (window.anime) {
+            anime({
+                targets: s,
+                scaleX: [0, 1.5],
+                opacity: [1, 0],
+                duration: 300,
+                easing: 'easeOutQuart',
+                complete: () => s.remove()
+            });
+        } else {
+            setTimeout(() => { if (s.parentNode) s.remove(); }, 200);
+        }
     }
 }
 
 function triggerScreenShake(type = 'light') {
-    els.world.classList.remove('shake-light', 'shake-heavy');
-    void els.world.offsetWidth;
-    els.world.classList.add(`shake-${type}`);
+    Camera.shake(type === 'heavy' ? 10 : 4, type === 'heavy' ? 300 : 150);
+}
+
+// ========== ENVIRONMENTAL HAZARDS ==========
+function spawnEnvironmentHazard() {
+    const worldRect = els.world.getBoundingClientRect();
+    const type = Math.random() > 0.5 ? 'lava' : 'spikes';
+    const x = 50 + Math.random() * (worldRect.width - 100);
+    const y = 50 + Math.random() * (worldRect.height - 100);
+    const duration = 15000 + state.level * 100;
+    ParticleEngine.spawnHazard(x, y, type, duration);
+}
+
+function updateHazards(dt) {
+    if (!ParticleEngine.hazards) return;
+    for (const h of ParticleEngine.hazards) {
+        if (!h.active) continue;
+        // Damage hero if inside hazard
+        const dx = state.heroPosition.x - h.x, dy = state.heroPosition.y - h.y;
+        if (dx*dx + dy*dy < h.radius * h.radius) {
+            const dmg = h.type === 'lava' ? Math.ceil(state.level * 0.3) : Math.ceil(state.level * 0.5);
+            if (Math.random() < 0.03) { // Tick damage
+                damagePlayer(dmg);
+                createFloatingText(state.heroPosition.x, state.heroPosition.y - 20, h.type === 'lava' ? '🔥' : '💥', 'crit');
+            }
+        }
+    }
 }
 
 // ========== UPGRADES ==========
@@ -657,21 +932,54 @@ function buyUpgrade(type) {
 
 // ========== UI UPDATES ==========
 function updateHealthUI() {
-    els.hud.healthText.innerText = `${Math.floor(state.player.hp)}/${Math.floor(state.player.maxHp)}`;
-    if (els.hud.healthBar) els.hud.healthBar.style.width = `${(state.player.hp/state.player.maxHp)*100}%`;
+    const targetText = `${Math.floor(state.player.hp)}/${Math.floor(state.player.maxHp)}`;
+    els.hud.healthText.innerText = targetText;
+    
+    if (els.hud.healthBar && window.anime) {
+        const targetWidth = `${(state.player.hp/state.player.maxHp)*100}%`;
+        anime({
+            targets: els.hud.healthBar,
+            width: targetWidth,
+            duration: 300,
+            easing: 'easeOutQuad'
+        });
+    } else if (els.hud.healthBar) {
+        els.hud.healthBar.style.width = `${(state.player.hp/state.player.maxHp)*100}%`;
+    }
 }
 
 function updateUI() {
     updateHealthUI();
     els.hud.levelDisplay.innerText = state.level;
     const prog = state.level % 10 === 0 ? 100 : (state.enemiesDefeatedInLevel/state.enemiesRequiredForNextLevel)*100;
-    els.hud.levelProgress.style.width = `${Math.min(100, prog)}%`;
+    const targetWidth = `${Math.min(100, prog)}%`;
+    
+    if (window.anime) {
+        anime({
+            targets: els.hud.levelProgress,
+            width: targetWidth,
+            duration: 500,
+            easing: 'easeOutElastic(1, .8)'
+        });
+    } else {
+        els.hud.levelProgress.style.width = targetWidth;
+    }
 
     if (els.hud.pointsDisplay.innerText !== String(state.points)) {
-        els.hud.pointsDisplay.innerText = state.points;
-        els.hud.pointsDisplay.classList.remove('collected');
-        void els.hud.pointsDisplay.offsetWidth;
-        els.hud.pointsDisplay.classList.add('collected');
+        const oldPoints = parseInt(els.hud.pointsDisplay.innerText) || 0;
+        if (window.anime) {
+            anime({
+                targets: els.hud.pointsDisplay,
+                innerText: [oldPoints, state.points],
+                round: 1,
+                duration: 1000,
+                easing: 'easeOutExpo',
+                begin: () => els.hud.pointsDisplay.classList.add('collected'),
+                complete: () => els.hud.pointsDisplay.classList.remove('collected')
+            });
+        } else {
+            els.hud.pointsDisplay.innerText = state.points;
+        }
     }
 
     const updBtn = (btn, upg, costEl, lvlEl) => {
@@ -737,26 +1045,46 @@ function loadGame() {
 function gameOver() {
     state.isRunning = false; SFX.gameOver();
     if (state.heroElement) state.heroElement.classList.add('dying');
+    // Death conversation
+    setTimeout(() => {
+        Dialogue.play(CONVERSATIONS.death, () => {
+            showScreen('end');
+            $('end-title').innerText = "KILLED IN ACTION";
+            $('end-title').classList.add('game-over-text');
+            $('end-title').style.color = ''; $('end-title').style.textShadow = ''; $('end-title').style.webkitTextFillColor = '';
+            $('death-skull').style.display = 'block';
+            $('final-level').innerText = state.level;
+            els.screens.end.classList.add('blood-tint');
+        });
+    }, 800);
+}
+
+function guestLimitReached() {
+    state.isRunning = false; SFX.gameOver();
     setTimeout(() => {
         showScreen('end');
-        $('end-title').innerText = "GAME OVER"; $('end-title').classList.add('game-over-text');
-        $('end-title').style.color = ''; $('end-title').style.textShadow = ''; $('end-title').style.webkitTextFillColor = '';
-        $('death-skull').style.display = 'block';
-        $('final-level').innerText = state.level;
-        els.screens.end.classList.add('blood-tint');
-    }, 1000);
+        const t = $('end-title');
+        t.innerText = "GUEST LIMIT"; t.classList.add('game-over-text');
+        t.style.color = '#00f0ff'; t.style.textShadow = '0 0 20px #00f0ff'; t.style.webkitTextFillColor = '#00f0ff';
+        $('death-skull').style.display = 'none';
+        $('end-subtitle').innerText = "You reached Level 100!\nLogin to play up to Level 1000!";
+        els.screens.end.classList.remove('blood-tint');
+    }, 500);
 }
 
 function winGame() {
     state.isRunning = false;
+    // Victory conversation
     setTimeout(() => {
-        showScreen('end');
-        const t = $('end-title');
-        t.innerText = "VICTORY!"; t.classList.remove('game-over-text');
-        t.style.color = '#00ff88'; t.style.textShadow = '0 0 20px #00ff88'; t.style.webkitTextFillColor = '#00ff88';
-        $('death-skull').style.display = 'none';
-        $('end-subtitle').innerText = "You defeated the Level 100 Boss!";
-        els.screens.end.classList.remove('blood-tint');
+        Dialogue.play(CONVERSATIONS.victory, () => {
+            showScreen('end');
+            const t = $('end-title');
+            t.innerText = "WAR IS OVER"; t.classList.remove('game-over-text');
+            t.style.color = '#22aa22'; t.style.textShadow = '0 0 20px rgba(30,150,30,0.5)'; t.style.webkitTextFillColor = '#22aa22';
+            $('death-skull').style.display = 'none';
+            $('end-subtitle').innerText = "The darkness has been destroyed.";
+            els.screens.end.classList.remove('blood-tint');
+        });
     }, 500);
 }
 

@@ -1,14 +1,14 @@
 :root {
-    --bg-dark: #0a0505;
-    --bg-mid: #1a0a0a;
-    --bg-light: #2a1111;
-    --accent: #ff0033;
-    --accent-glow: rgba(255, 0, 51, 0.6);
-    --success: #33ff33;
-    --text-main: #e0e0e0;
-    --text-dim: #888888;
-    --glass-bg: rgba(20, 10, 10, 0.85);
-    --glass-border: rgba(255, 50, 50, 0.3);
+    --bg-dark: #050505;
+    --bg-mid: #0a0808;
+    --bg-light: #111010;
+    --accent: #cc0000;
+    --accent-glow: rgba(180, 0, 0, 0.5);
+    --success: #22aa22;
+    --text-main: #b0a8a0;
+    --text-dim: #555;
+    --glass-bg: rgba(8, 5, 5, 0.92);
+    --glass-border: rgba(120, 20, 20, 0.4);
     --hero-size: 60px;
     --enemy-size: 45px;
     --boss-size: 100px;
@@ -17,9 +17,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 
 body {
-    background: linear-gradient(135deg, var(--bg-dark), var(--bg-mid), var(--bg-light));
-    background-size: 400% 400%;
-    animation: gradientBG 15s ease infinite;
+    background: #030303;
     color: var(--text-main);
     height: 100vh;
     height: 100dvh;
@@ -30,42 +28,38 @@ body {
     touch-action: none;
 }
 
-@keyframes gradientBG {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
 #game-container {
     width: 100%; max-width: 1200px; height: 100vh; height: 100dvh;
-    position: relative; box-shadow: 0 0 50px rgba(0,0,0,0.5); overflow: hidden;
-    background: radial-gradient(circle at center, rgba(40,40,70,0.4) 0%, rgba(10,10,20,0.8) 100%);
+    position: relative; overflow: hidden;
+    background: #060606;
 }
 
 .screen {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     display: flex; flex-direction: column; justify-content: center; align-items: center;
-    transition: opacity 0.5s ease; z-index: 10;
+    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), filter 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 10;
 }
 
-.screen.hidden { opacity: 0; pointer-events: none; }
-.screen.active { opacity: 1; pointer-events: all; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); }
+.screen.hidden { opacity: 0; pointer-events: none; filter: blur(20px); transform: scale(1.1); }
+.screen.active { opacity: 1; pointer-events: all; filter: none; transform: scale(1); }
 
-#game-ui { z-index: 5; background: transparent; backdrop-filter: none; justify-content: flex-start; }
+.menu-overlay { background: rgba(0,0,0,0.85); backdrop-filter: blur(12px); }
+
+#game-ui { 
+    z-index: 5; background: transparent !important; backdrop-filter: none !important; 
+    justify-content: flex-start; filter: none !important; transform: none !important; 
+    pointer-events: none; /* Let clicks pass to world */
+}
+#game-ui > * { pointer-events: all; } /* But UI elements still clickable */
 
 /* Typography */
 .logo {
-    font-size: 4rem; font-weight: 900;
-    background: linear-gradient(to right, #ff0033, #880000);
-    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    font-size: 3.5rem; font-weight: 900;
+    color: #880000;
+    text-shadow: 0 0 30px rgba(120,0,0,0.5), 0 2px 4px rgba(0,0,0,0.8);
     margin-bottom: 20px; text-align: center;
-    animation: pulseLogo 2s infinite; text-transform: uppercase; letter-spacing: 5px;
-}
-
-@keyframes pulseLogo {
-    0% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(255,0,51,0.5)); }
-    50% { transform: scale(1.02); filter: drop-shadow(0 0 15px rgba(255,50,50,0.8)); }
-    100% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(255,0,51,0.5)); }
+    text-transform: uppercase; letter-spacing: 8px;
 }
 
 .subtitle { font-size: 1.2rem; color: var(--text-dim); margin-bottom: 30px; letter-spacing: 2px; }
@@ -77,14 +71,14 @@ body {
 .mb-20 { margin-bottom: 20px; }
 
 .glow-btn {
-    padding: 12px 30px; font-size: 1.2rem; font-weight: 900; color: white;
-    background: linear-gradient(45deg, #880000, #ff0033); border: 1px solid #ff3333;
-    border-radius: 4px; cursor: pointer; box-shadow: 0 0 15px rgba(255,0,0,0.4);
-    transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 2px;
+    padding: 12px 30px; font-size: 1rem; font-weight: 900; color: #ccc;
+    background: linear-gradient(180deg, #1a0000, #0a0000); border: 1px solid #440000;
+    border-radius: 2px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.8);
+    transition: all 0.2s ease; text-transform: uppercase; letter-spacing: 3px;
 }
-.glow-btn:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 10px 25px var(--accent-glow); }
-.glow-btn:active { transform: translateY(1px) scale(0.98); }
-.small-btn { padding: 8px 18px; font-size: 0.9rem; }
+.glow-btn:hover { background: linear-gradient(180deg, #2a0000, #1a0000); border-color: #660000; color: #fff; }
+.glow-btn:active { transform: scale(0.97); }
+.small-btn { padding: 8px 18px; font-size: 0.85rem; }
 
 /* Story */
 .story-container { max-width: 600px; width: 90%; text-align: center; padding: 30px; }
@@ -241,10 +235,10 @@ body {
 /* ========== GAME WORLD ========== */
 #game-world {
     flex-grow: 1; width: 100%; position: relative; overflow: hidden;
-    background-image: 
-        linear-gradient(rgba(255,0,0,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,0,0,0.03) 1px, transparent 1px);
-    background-size: 50px 50px;
+    background: #080808;
+    background-image:
+        radial-gradient(ellipse at 20% 80%, rgba(80,0,0,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(60,0,0,0.04) 0%, transparent 50%);
 }
 
 #battleground-elements { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
@@ -265,24 +259,25 @@ body {
     position: absolute; transform-origin: center bottom;
     display: flex; justify-content: center; align-items: center;
     font-size: var(--hero-size); line-height: 1;
-    transition: left 0.08s linear, top 0.08s linear;
+    will-change: transform;
+    transition: none;
 }
 
 .hero {
     font-size: var(--hero-size); z-index: 100;
-    filter: drop-shadow(0 0 15px rgba(255,255,255,0.5));
-    animation: idleFloat 2s ease-in-out infinite;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.8));
+    transition: filter 0.3s ease;
 }
-.hero.invincible { filter: drop-shadow(0 0 20px rgba(0,200,255,0.8)) brightness(1.5); }
+.hero.invincible { filter: drop-shadow(0 0 15px rgba(0,150,200,0.6)) brightness(1.3); }
 
 .enemy {
     font-size: var(--enemy-size); z-index: 50; cursor: crosshair;
-    animation: enemyWobble 1s ease-in-out infinite alternate;
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,0.7));
 }
-.enemy:active { filter: brightness(1.2) drop-shadow(0 0 10px red); transform: scale(1.1); }
-.enemy.boss { font-size: var(--boss-size); z-index: 60; animation: bossFloat 3s ease-in-out infinite; filter: drop-shadow(0 0 30px rgba(255,0,0,0.8)); }
-.enemy.final-boss { font-size: 120px; filter: drop-shadow(0 0 50px rgba(138,43,226,0.9)); animation: finalBossFloat 4s ease-in-out infinite, spawnIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-.enemy.elite { filter: drop-shadow(0 0 20px rgba(255,215,0,0.8)); }
+.enemy:active { filter: brightness(1.5) drop-shadow(0 0 8px rgba(180,0,0,0.6)); }
+.enemy.boss { font-size: var(--boss-size); z-index: 60; filter: drop-shadow(0 0 20px rgba(120,0,0,0.7)); }
+.enemy.final-boss { font-size: 120px; filter: drop-shadow(0 0 40px rgba(100,0,80,0.8)); }
+.enemy.elite { filter: drop-shadow(0 0 15px rgba(200,150,0,0.6)); }
 
 /* Enemy HP Bar */
 .enemy-hp-container {
@@ -321,10 +316,10 @@ body {
 
 /* ========== MOBILE CONTROLS ========== */
 #mobile-controls {
-    position: absolute; bottom: 0; left: 0; width: 100%; height: 180px;
+    position: absolute; bottom: 0; left: 0; width: 100%; height: 200px;
     pointer-events: none; z-index: 150;
     display: flex; justify-content: space-between; align-items: flex-end;
-    padding: 0 15px 15px;
+    padding: 0 10px 20px;
 }
 
 #joystick-zone {
@@ -334,14 +329,14 @@ body {
 }
 
 .joystick-base {
-    position: absolute; width: 120px; height: 120px;
+    position: absolute; width: 140px; height: 140px;
     border: 3px solid rgba(255,255,255,0.3); border-radius: 50%;
     background: rgba(0,0,0,0.3); backdrop-filter: blur(5px);
     display: flex; justify-content: center; align-items: center;
 }
 .joystick-base.hidden { display: none; }
 .joystick-thumb {
-    width: 50px; height: 50px; border-radius: 50%;
+    width: 60px; height: 60px; border-radius: 50%;
     background: radial-gradient(circle, rgba(255,0,51,0.8), rgba(255,0,51,0.4));
     border: 2px solid rgba(255,255,255,0.5);
     box-shadow: 0 0 15px rgba(255,0,51,0.5);
@@ -362,18 +357,19 @@ body {
 .action-btn-touch:active { transform: scale(0.85); }
 
 .attack-btn {
-    width: 80px; height: 80px;
+    width: 90px; height: 90px;
     background: linear-gradient(135deg, #cc0000, #ff0033);
-    border: 3px solid #ff3333;
+    border: 4px solid #ff3333;
     box-shadow: 0 0 20px rgba(255,0,0,0.4);
+    font-size: 2.5rem;
 }
 .dodge-btn {
-    width: 55px; height: 55px;
+    width: 65px; height: 65px;
     background: linear-gradient(135deg, #0066cc, #00aaff);
     border: 3px solid #00ccff;
 }
 .ability-btn {
-    width: 55px; height: 55px;
+    width: 65px; height: 65px;
     background: linear-gradient(135deg, #6600cc, #aa00ff);
     border: 3px solid #cc44ff;
 }
@@ -395,8 +391,8 @@ body {
 
 /* Store */
 #upgrade-store {
-    position: absolute; bottom: 190px; left: 50%; transform: translateX(-50%);
-    width: 95%; max-width: 500px; padding: 12px; z-index: 200;
+    position: absolute; bottom: 210px; left: 50%; transform: translateX(-50%);
+    width: 98%; max-width: 500px; padding: 12px; z-index: 200;
     display: flex; flex-direction: column; gap: 8px;
 }
 #upgrade-store.hidden { display: none; }
@@ -405,9 +401,9 @@ body {
 .store-close-btn { position: absolute; top: 5px; right: 10px; background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
 
 .store-toggle-btn {
-    position: absolute; bottom: 195px; left: 15px; z-index: 160;
+    position: absolute; bottom: 215px; left: 15px; z-index: 160;
     background: rgba(0,0,0,0.7); border: 2px solid var(--glass-border);
-    border-radius: 50%; width: 45px; height: 45px; font-size: 1.4rem;
+    border-radius: 50%; width: 55px; height: 55px; font-size: 1.6rem;
     color: white; cursor: pointer; display: flex; justify-content: center; align-items: center;
 }
 .store-toggle-btn:active { transform: scale(0.9); }
@@ -432,13 +428,12 @@ body {
 /* ========== ANIMATIONS ========== */
 @keyframes spawnIn {
     0% { transform: scale(0); opacity: 0; }
-    80% { transform: scale(1.1); opacity: 1; }
     100% { transform: scale(1); opacity: 1; }
 }
-@keyframes idleFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-@keyframes enemyWobble { 0% { transform: rotate(-3deg); } 100% { transform: rotate(3deg); } }
-@keyframes bossFloat { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-15px) scale(1.05); } }
-@keyframes finalBossFloat { 0%, 100% { transform: translateY(0) scale(1) rotate(-3deg); } 50% { transform: translateY(-20px) scale(1.1) rotate(3deg); } }
+@keyframes idleFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes enemyWobble { 0% { transform: rotate(-1deg); } 100% { transform: rotate(1deg); } }
+@keyframes bossFloat { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-8px) scale(1.02); } }
+@keyframes finalBossFloat { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-10px) scale(1.03); } }
 
 .hero.attacking { animation: heroAttack 0.15s ease-out; }
 @keyframes heroAttack {
@@ -585,3 +580,218 @@ body {
     animation: flashOut 0.3s ease-out forwards;
 }
 @keyframes flashOut { 0% { opacity: 0.6; } 100% { opacity: 0; } }
+
+/* ========== PARTICLE CANVAS ========== */
+#particle-canvas {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 95;
+}
+
+/* ========== FPS COUNTER ========== */
+#fps-counter {
+    position: absolute; top: 4px; right: 4px; z-index: 999;
+    font-size: 0.65rem; font-weight: 900; color: #00ff88;
+    background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px;
+    pointer-events: none; font-family: monospace;
+}
+
+/* ========== RAGE MODE ========== */
+#rage-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 90; opacity: 0;
+    background: radial-gradient(circle, transparent 40%, rgba(180,0,0,0.4) 100%);
+    transition: opacity 0.5s ease;
+}
+#rage-overlay.active { opacity: 1; animation: ragePulse 0.8s ease-in-out infinite alternate; }
+@keyframes ragePulse { 0% { opacity: 0.6; } 100% { opacity: 1; } }
+
+.hero.rage-mode {
+    filter: drop-shadow(0 0 25px rgba(255,0,0,0.9)) brightness(1.3) saturate(1.5);
+    animation: rageFloat 0.4s ease-in-out infinite alternate;
+}
+@keyframes rageFloat { 0% { transform: translateY(0) scale(1.05); } 100% { transform: translateY(-5px) scale(1.1); } }
+
+/* ========== DANGER TELEGRAPH ========== */
+.danger-zone {
+    position: absolute; border-radius: 50%; pointer-events: none; z-index: 10;
+    border: 2px solid rgba(255,0,0,0.6); background: rgba(255,0,0,0.1);
+    animation: dangerPulse 0.5s ease-in-out infinite alternate;
+    transform: translate(-50%, -50%);
+}
+@keyframes dangerPulse { 0% { opacity: 0.3; transform: translate(-50%,-50%) scale(0.95); } 100% { opacity: 0.7; transform: translate(-50%,-50%) scale(1.05); } }
+
+/* ========== EXECUTION FINISHER ========== */
+.execution-flash {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 998;
+    background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, transparent 70%);
+    animation: execFlash 0.6s ease-out forwards;
+}
+@keyframes execFlash {
+    0% { opacity: 1; transform: scale(0.5); }
+    40% { opacity: 0.8; transform: scale(1.5); }
+    100% { opacity: 0; transform: scale(2); }
+}
+
+/* ========== JUGGLE EFFECT ========== */
+.enemy.juggled {
+    animation: juggleBounce 0.3s ease-out;
+}
+@keyframes juggleBounce {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-40px) scale(1.1); }
+    100% { transform: translateY(0) scale(1); }
+}
+
+/* ========== MOMENTUM TRAIL ========== */
+.momentum-trail {
+    position: absolute; font-size: calc(var(--hero-size) * 0.8); pointer-events: none; z-index: 89;
+    opacity: 0.25; filter: blur(3px) brightness(1.5);
+    animation: trailFade 0.25s linear forwards;
+}
+@keyframes trailFade { to { opacity: 0; transform: scale(0.7); } }
+
+/* ========== ENHANCED BOSS ENTRANCE ========== */
+.boss-cinematic-entrance {
+    animation: bossSlam 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes bossSlam {
+    0% { transform: translateY(-200px) scale(0.3); opacity: 0; filter: brightness(3); }
+    60% { transform: translateY(10px) scale(1.2); opacity: 1; filter: brightness(2); }
+    80% { transform: translateY(-5px) scale(0.95); }
+    100% { transform: translateY(0) scale(1); filter: brightness(1); }
+}
+
+/* ========== 3-HIT COMBO SWINGS ========== */
+.hero.combo-1 { animation: comboSwing1 0.12s ease-out; }
+.hero.combo-2 { animation: comboSwing2 0.12s ease-out; }
+.hero.combo-3 { animation: comboSwing3 0.15s ease-out; }
+@keyframes comboSwing1 { 0%{transform:rotate(0) scale(1)} 50%{transform:rotate(-15deg) scale(1.15)} 100%{transform:rotate(0) scale(1)} }
+@keyframes comboSwing2 { 0%{transform:rotate(0) scale(1)} 50%{transform:rotate(15deg) scale(1.2)} 100%{transform:rotate(0) scale(1)} }
+@keyframes comboSwing3 { 0%{transform:rotate(0) scale(1)} 30%{transform:rotate(-20deg) scale(1.3)} 70%{transform:rotate(10deg) scale(1.1)} 100%{transform:rotate(0) scale(1)} }
+
+/* ========== ENHANCED ENEMY STAGGER ========== */
+.enemy.stagger {
+    animation: staggerRecoil 0.25s ease-out;
+}
+@keyframes staggerRecoil {
+    0% { transform: scale(1) rotate(0); filter: brightness(1); }
+    20% { transform: scale(0.7) rotate(-15deg); filter: brightness(3) saturate(0); }
+    50% { transform: scale(0.85) rotate(10deg); filter: brightness(1.5); }
+    100% { transform: scale(1) rotate(0); filter: brightness(1); }
+}
+
+/* ========== SHATTER DEATH ========== */
+.enemy.shatter-death {
+    animation: shatterDie 0.5s ease-in forwards;
+}
+@keyframes shatterDie {
+    0% { transform: scale(1); filter: brightness(1); opacity: 1; }
+    30% { transform: scale(1.3); filter: brightness(3) saturate(0); }
+    100% { transform: scale(0); filter: brightness(5); opacity: 0; }
+}
+
+/* ========== CINEMATIC LETTERBOX ========== */
+#letterbox-top, #letterbox-bottom {
+    position: absolute; left: 0; width: 100%; height: 0; background: #000;
+    z-index: 900; transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+}
+#letterbox-top { top: 0; }
+#letterbox-bottom { bottom: 0; }
+#letterbox-top.active, #letterbox-bottom.active { height: 12%; }
+
+/* ========== DIALOGUE SYSTEM ========== */
+#dialogue-box {
+    position: absolute; bottom: 0; left: 0; width: 100%; z-index: 950;
+    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.95) 30%);
+    padding: 50px 20px 25px; opacity: 0; transform: translateY(30px);
+    transition: opacity 0.6s cubic-bezier(0.4,0,0.2,1), transform 0.6s cubic-bezier(0.4,0,0.2,1);
+    pointer-events: none;
+}
+#dialogue-box.active { opacity: 1; transform: translateY(0); pointer-events: all; }
+
+.dialogue-speaker {
+    font-size: 0.85rem; font-weight: 900; letter-spacing: 3px; text-transform: uppercase;
+    margin-bottom: 6px; color: var(--accent);
+    text-shadow: 0 0 15px var(--accent-glow);
+}
+.dialogue-text {
+    font-size: 1.05rem; line-height: 1.6; color: #ddd;
+    min-height: 50px; max-width: 600px;
+}
+.dialogue-prompt {
+    font-size: 0.7rem; color: var(--text-dim); margin-top: 10px;
+    animation: promptBlink 1.2s ease-in-out infinite;
+    letter-spacing: 2px;
+}
+@keyframes promptBlink { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+/* ========== CINEMATIC VIGNETTE ========== */
+#cinematic-vignette {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 88;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.65) 100%);
+}
+
+/* ========== FILM GRAIN ========== */
+#cinematic-vignette::after {
+    content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    pointer-events: none; z-index: 89;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    animation: grainShift 0.5s steps(3) infinite;
+}
+@keyframes grainShift {
+    0% { transform: translate(0, 0); }
+    33% { transform: translate(-2px, 1px); }
+    66% { transform: translate(1px, -2px); }
+    100% { transform: translate(0, 0); }
+}
+
+/* ========== ATMOSPHERE OVERLAY ========== */
+#atmosphere-layer {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 87; opacity: 0.3;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(20,5,0,0.15) 100%);
+}
+
+/* ========== WEIGHTED HERO ANIMATIONS ========== */
+.hero {
+    transition: filter 0.3s ease;
+}
+.hero.heavy-land {
+    animation: heavyLand 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes heavyLand {
+    0% { transform: translate3d(var(--hx), var(--hy), 0) scale(1); }
+    30% { transform: translate3d(var(--hx), calc(var(--hy) + 5px), 0) scaleY(0.85) scaleX(1.15); }
+    60% { transform: translate3d(var(--hx), var(--hy), 0) scaleY(1.05) scaleX(0.97); }
+    100% { transform: translate3d(var(--hx), var(--hy), 0) scale(1); }
+}
+
+/* ========== CINEMATIC IMPACT FRAME ========== */
+.impact-frame {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 997;
+    background: rgba(255,255,255,0.7);
+    mix-blend-mode: overlay;
+    animation: impactFade 0.12s ease-out forwards;
+}
+@keyframes impactFade { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ========== CINEMATIC KILL CAM ========== */
+.killcam-zoom {
+    animation: killcamZoom 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+@keyframes killcamZoom {
+    0% { transform: scale(1); filter: saturate(1); }
+    30% { transform: scale(1.15); filter: saturate(0.3) contrast(1.3); }
+    100% { transform: scale(1); filter: saturate(1) contrast(1); }
+}
+
+/* ========== WEATHER / DUST PARTICLES (canvas driven) ========== */
+#weather-canvas {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 86; opacity: 0.5;
+}
