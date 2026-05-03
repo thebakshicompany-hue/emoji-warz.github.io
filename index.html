@@ -12,6 +12,8 @@
 </head>
 <body>
     <div id="game-container">
+        <!-- 3D World (behind everything) -->
+        <div id="three-container"></div>
         
         <!-- Login Screen -->
         <div id="login-screen" class="screen active menu-overlay">
@@ -90,7 +92,7 @@
             <h2 class="logo char-title" style="margin-top: 40px;">CHOOSE YOUR HERO</h2>
             <div class="char-cards">
                 <div class="char-card" data-hero="balanced">
-                    <div class="char-emoji"><i data-lucide="sword"></i></div>
+                    <div class="char-emoji">⚔️</div>
                     <h3 class="char-name">Balanced</h3>
                     <ul class="char-stats">
                         <li>HP: 100 | DMG: 10</li>
@@ -99,7 +101,7 @@
                     </ul>
                 </div>
                 <div class="char-card" data-hero="tank">
-                    <div class="char-emoji"><i data-lucide="shield"></i></div>
+                    <div class="char-emoji">🛡️</div>
                     <h3 class="char-name">Tank</h3>
                     <ul class="char-stats">
                         <li>HP: <span class="text-green">250</span> | DMG: 12</li>
@@ -108,7 +110,7 @@
                     </ul>
                 </div>
                 <div class="char-card" data-hero="assassin">
-                    <div class="char-emoji"><i data-lucide="scissors"></i></div>
+                    <div class="char-emoji">✂️</div>
                     <h3 class="char-name">Assassin</h3>
                     <ul class="char-stats">
                         <li>HP: <span class="text-red">60</span> | DMG: <span class="text-green">15</span></li>
@@ -117,7 +119,7 @@
                     </ul>
                 </div>
                 <div class="char-card" data-hero="mage">
-                    <div class="char-emoji"><i data-lucide="eye"></i></div>
+                    <div class="char-emoji">👁️</div>
                     <h3 class="char-name">Mage</h3>
                     <ul class="char-stats">
                         <li>HP: 80 | DMG: <span class="text-green">25</span></li>
@@ -126,7 +128,7 @@
                     </ul>
                 </div>
                 <div class="char-card" data-hero="archer">
-                    <div class="char-emoji"><i data-lucide="crosshair"></i></div>
+                    <div class="char-emoji">🎯</div>
                     <h3 class="char-name">Archer</h3>
                     <ul class="char-stats">
                         <li>HP: 90 | DMG: 18</li>
@@ -144,10 +146,11 @@
                 <div class="hud-top-row">
                     <div class="hud-left">
                         <div class="level-indicator">LV <span id="level-display">1</span></div>
-                        <div class="stat-row"><span class="stat-icon"><i data-lucide="gem"></i></span><span id="points-display" class="stat-value points-glow">0</span></div>
+                        <div class="stat-row"><span class="stat-icon">💎</span><span id="points-display" class="stat-value points-glow">0</span></div>
+                        <div id="wave-timer" class="wave-timer hidden">WAVE: <span id="wave-countdown">5</span>s</div>
+                        <div id="kill-counter" class="kill-counter hidden">⚔️ <span id="kill-count">0</span>/<span id="kill-req">5</span></div>
                     </div>
                     <div class="hud-center">
-                        <div id="wave-timer" class="wave-timer hidden">NEXT WAVE: <span id="wave-countdown">5</span>s</div>
                     </div>
                     <div class="hud-right">
                         <button id="save-btn" class="hud-btn">💾</button>
@@ -180,15 +183,15 @@
                 <div class="allies-row">
                     <div id="rescued-container" class="rescued-container"></div>
                     <div id="trade-panel" class="trade-panel">
-                        <button class="trade-btn" onclick="tradeSystem('points')" title="1 Pet → 500💎"><i data-lucide="gem"></i><span class="trade-cost">1<i data-lucide="dog" style="width:10px;height:10px;"></i></span></button>
-                        <button class="trade-btn" onclick="tradeSystem('health')" title="3 Pets → Full Heal"><i data-lucide="heart"></i><span class="trade-cost">3<i data-lucide="dog" style="width:10px;height:10px;"></i></span></button>
-                        <button class="trade-btn" onclick="tradeSystem('maxhealth')" title="5 Pets → +50 Max HP"><i data-lucide="shield-plus"></i><span class="trade-cost">5<i data-lucide="dog" style="width:10px;height:10px;"></i></span></button>
-                        <button class="trade-btn" onclick="tradeSystem('damage')" title="5 Pets → +20% DMG"><i data-lucide="swords"></i><span class="trade-cost">5<i data-lucide="dog" style="width:10px;height:10px;"></i></span></button>
+                        <button class="trade-btn" onclick="tradeSystem('points')" title="1 Pet → 500💎">💎<span class="trade-cost">1🐾</span></button>
+                        <button class="trade-btn" onclick="tradeSystem('health')" title="3 Pets → Full Heal">❤️<span class="trade-cost">3🐾</span></button>
+                        <button class="trade-btn" onclick="tradeSystem('maxhealth')" title="5 Pets → +50 Max HP">🛡️<span class="trade-cost">5🐾</span></button>
+                        <button class="trade-btn" onclick="tradeSystem('damage')" title="5 Pets → +20% DMG">⚔️<span class="trade-cost">5🐾</span></button>
                     </div>
                 </div>
             </div>
 
-            <!-- Game World -->
+            <!-- Game World (Overlay/Legacy) -->
             <div id="game-world">
                 <canvas id="weather-canvas"></canvas>
                 <div id="atmosphere-layer"></div>
@@ -236,36 +239,50 @@
                 <h3 class="store-title">UPGRADES</h3>
                 <div class="upgrade-row">
                     <button id="upg-damage" class="upgrade-btn">
-                        <span class="upg-icon"><i data-lucide="swords"></i></span>
+                        <span class="upg-icon">⚔️</span>
                         <div class="upg-info"><span class="upg-name">Damage</span><span class="upg-level" id="lvl-damage">Lv.1</span></div>
-                        <span class="upg-cost"><span id="cost-damage">10</span><i data-lucide="gem"></i></span>
+                        <span class="upg-cost"><span id="cost-damage">10</span>💎</span>
                     </button>
                     <button id="upg-health" class="upgrade-btn">
-                        <span class="upg-icon"><i data-lucide="heart"></i></span>
+                        <span class="upg-icon">❤️</span>
                         <div class="upg-info"><span class="upg-name">Max HP</span><span class="upg-level" id="lvl-health">Lv.1</span></div>
-                        <span class="upg-cost"><span id="cost-health">15</span><i data-lucide="gem"></i></span>
+                        <span class="upg-cost"><span id="cost-health">15</span>💎</span>
                     </button>
                     <button id="upg-speed" class="upgrade-btn">
-                        <span class="upg-icon"><i data-lucide="zap"></i></span>
+                        <span class="upg-icon">⚡</span>
                         <div class="upg-info"><span class="upg-name">Atk Spd</span><span class="upg-level" id="lvl-speed">Lv.1</span></div>
-                        <span class="upg-cost"><span id="cost-speed">20</span><i data-lucide="gem"></i></span>
+                        <span class="upg-cost"><span id="cost-speed">20</span>💎</span>
                     </button>
                     <button id="btn-heal" class="upgrade-btn action-btn">
-                        <span class="upg-icon"><i data-lucide="pipette"></i></span>
+                        <span class="upg-icon">🧪</span>
                         <div class="upg-info"><span class="upg-name">Heal 50%</span></div>
-                        <span class="upg-cost">5<i data-lucide="gem"></i></span>
+                        <span class="upg-cost">5💎</span>
                     </button>
                 </div>
             </div>
 
-            <button id="store-toggle-btn" class="store-toggle-btn"><i data-lucide="shopping-cart"></i></button>
+            <button id="store-toggle-btn" class="store-toggle-btn">🛒</button>
             
             <div id="boss-warning" class="hidden">⚠️ BOSS APPROACHING ⚠️</div>
-        </div>
+
+            <!-- Minimap -->
+            <div id="minimap-container">
+                <canvas id="minimap-canvas" width="100" height="100"></canvas>
+            </div>
+
+            <!-- Level Up Choice Panel -->
+            <div id="levelup-panel" class="glass-panel hidden">
+                <button id="close-levelup-btn" class="store-close-btn">✕</button>
+                <h3 class="levelup-title">⬆️ LEVEL UP!</h3>
+                <p class="levelup-subtitle">Choose a bonus:</p>
+                <div id="levelup-choices" class="levelup-choices"></div>
+            </div>
+
+        </div><!-- end game-ui -->
 
         <!-- End Screen -->
         <div id="end-screen" class="screen hidden end-overlay menu-overlay">
-            <div class="skull-icon" id="death-skull"><i data-lucide="skull" style="width:100%;height:100%;"></i></div>
+            <div class="skull-icon" id="death-skull">💀</div>
             <h1 id="end-title" class="logo game-over-text">GAME OVER</h1>
             <p id="end-subtitle" class="subtitle">You reached Level <span id="final-level"></span></p>
             <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;" class="mt-20">
@@ -276,9 +293,11 @@
         
         <div id="save-toast" class="save-toast hidden">Game Saved! 💾</div>
     </div>
+    <script src="three.min.js"></script>
     <script src="lucide.min.js"></script>
     <script src="anime.min.js"></script>
     <script src="physics.js"></script>
+    <script src="render3d.js"></script>
     <script src="cinematic.js"></script>
     <script src="game.js"></script>
     <script src="combat.js"></script>

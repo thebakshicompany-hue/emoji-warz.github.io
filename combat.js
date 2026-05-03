@@ -202,9 +202,10 @@ function handleAttack(time) {
     // 3-hit combo swing animation
     if (state.heroElement) {
         state.comboSwing = (state.comboSwing % 3) + 1;
-        state.heroElement.classList.remove('attacking', 'combo-1', 'combo-2', 'combo-3');
-        void state.heroElement.offsetWidth;
-        state.heroElement.classList.add(`combo-${state.comboSwing}`);
+        const inner = state.heroElement.querySelector('.hero-inner') || state.heroElement;
+        inner.classList.remove('combo-1', 'combo-2', 'combo-3');
+        void inner.offsetWidth;
+        inner.classList.add(`combo-${state.comboSwing}`);
     }
 
     // Hitlag on crit
@@ -219,8 +220,9 @@ function handleAttack(time) {
 // Also auto-attack when not pressing (slower rate)
 function autoAttackTick(time) {
     if (state.attackHeld) return; // Manual takes priority
-    if (time - state.lastAttackTime < state.player.attackSpeed * 1.5) return; // Slower auto
-    state.lastAttackTime = time;
+    const now = time || performance.now();
+    if (now - state.lastAttackTime < state.player.attackSpeed * 1.5) return; // Slower auto
+    state.lastAttackTime = now;
 
     const target = findClosestEnemy();
     if (!target) return;
@@ -247,10 +249,9 @@ function fireProjectile(fromX, fromY, toX, toY, damage, isCrit = false) {
     const el = document.createElement('div');
     el.className = 'projectile';
     const projIcon = state.player.projEmoji || 'flame';
-    el.innerHTML = `<i data-lucide="${projIcon}"></i>`;
+    el.innerHTML = `${projIcon}`;
     el.style.left = `${fromX}px`; el.style.top = `${fromY}px`;
     els.world.appendChild(el);
-    if (window.lucide) window.lucide.createIcons();
 
     const dx = toX - fromX, dy = toY - fromY;
     const dist = Math.sqrt(dx*dx + dy*dy);
@@ -301,6 +302,7 @@ function spawnWave() {
         showBossWarning(); count = 1;
         // Cinematic boss entrance with conversation
         const convo = getBossConversation(state.level);
+        const bossWorldRect = els.world.getBoundingClientRect();
         state.isRunning = false; // Pause game during cutscene
         setTimeout(() => {
             Dialogue.play(convo, () => {
@@ -311,7 +313,7 @@ function spawnWave() {
                 els.world.appendChild(crack);
                 setTimeout(() => { if (crack.parentNode) crack.remove(); }, 3000);
                 Camera.shake(15, 600);
-                ParticleEngine.bossEntrance(worldRect.width / 2, 150);
+                ParticleEngine.bossEntrance(bossWorldRect.width / 2, 150);
                 Haptics.heavy();
                 requestAnimationFrame(gameLoop);
             });
@@ -361,7 +363,7 @@ function showBossWarning() {
 function createEnemy(data) {
     const el = document.createElement('div');
     el.className = `entity enemy ${data.isBoss ? 'boss' : ''} ${data.isFinalBoss ? 'final-boss' : ''} ${data.isElite ? 'elite' : ''}`;
-    el.innerHTML = `<i data-lucide="${data.emoji}"></i>`;
+    el.innerHTML = `${data.emoji}`;
 
     const hpC = document.createElement('div');
     hpC.className = `enemy-hp-container ${data.isBoss || data.isFinalBoss ? 'boss-hp-container' : ''}`;
@@ -391,7 +393,10 @@ function createEnemy(data) {
 
     state.enemies.push(obj);
     updateEnemyPos(obj);
-    if (window.lucide) window.lucide.createIcons();
+
+    // 3D Spawn
+    const entityType = data.isFinalBoss ? 'boss' : (data.isBoss ? 'boss' : (data.isElite ? 'elite' : 'enemy'));
+    ThreeEngine.spawn('enemy_' + data.id, entityType);
 
     // Anime.js spawn animation
     if (window.anime) {
@@ -426,6 +431,7 @@ function updateEnemies(time, dt) {
             const mv = e.speed * (dt/16);
             e.x += (dx/dist) * mv; e.y += (dy/dist) * mv;
             updateEnemyPos(e);
+            ThreeEngine.updateEntity('enemy_' + e.id, e.x, e.y);
         } else {
             if (time - e.lastAttackTime > e.attackDelay) {
                 // Telegraph danger zone before attacking
@@ -453,8 +459,8 @@ function updateEnemies(time, dt) {
                 }
                 e.lastAttackTime = time;
                 e._telegraphed = false;
-                e.element.style.transform += ' scale(1.15)';
-                setTimeout(() => { if (e.element) updateEnemyPos(e); }, 100);
+                e.element.classList.add('attack-lunge');
+                setTimeout(() => { if (e.element) e.element.classList.remove('attack-lunge'); updateEnemyPos(e); }, 120);
             }
         }
     }
@@ -476,25 +482,13 @@ function damageEnemy(enemy, amount, isCrit = false) {
     enemy.hpFill.style.width = `${Math.max(0, enemy.hp/enemy.maxHp)*100}%`;
     createFloatingText(enemy.x, enemy.y - 15, amount, isCrit ? 'crit' : 'damage');
 
-    // Knockback with anime.js spring physics
+    // Knockback
     const dx = enemy.x - state.heroPosition.x, dy = enemy.y - state.heroPosition.y;
     const dist = Math.sqrt(dx*dx + dy*dy);
     if (dist > 0) {
         const kb = isCrit ? 50 : 20;
         enemy.x += (dx/dist) * kb; enemy.y += (dy/dist) * kb;
-        
-        if (window.anime) {
-            const offset = enemy.isFinalBoss ? 60 : (enemy.isBoss ? 50 : 22);
-            anime({
-                targets: enemy.element,
-                translateX: enemy.x - offset,
-                translateY: enemy.y - offset,
-                duration: 600,
-                easing: 'easeOutElastic(1, .6)'
-            });
-        } else {
-            updateEnemyPos(enemy);
-        }
+        updateEnemyPos(enemy);
     }
 
     // Particle effects + cinematic impact
@@ -507,10 +501,11 @@ function damageEnemy(enemy, amount, isCrit = false) {
         Camera.shake(3, 100);
     }
 
-    // Stagger animation
+    // Stagger animation — use filter-only classes to avoid fighting translate3d
     enemy.element.classList.remove('hit', 'stagger');
     void enemy.element.offsetWidth;
     enemy.element.classList.add(isCrit ? 'stagger' : 'hit');
+    setTimeout(() => enemy.element && enemy.element.classList.remove('hit', 'stagger'), 250);
 
     // Juggle physics: crits launch enemies upward briefly
     if (isCrit && !enemy.isBoss && !enemy.isFinalBoss) {
@@ -576,6 +571,8 @@ function killEnemy(enemy) {
 
     setTimeout(() => {
         if (enemy.element?.parentNode) enemy.element.remove();
+        ThreeEngine.removeEntity('enemy_' + enemy.id);
+        ThreeEngine.burstAt(enemy.x, enemy.y, enemy.isBoss ? '#ff4400' : '#cc0000', enemy.isBoss ? 40 : 15);
         state.enemies = state.enemies.filter(e => e.id !== enemy.id);
     }, 500);
 }
@@ -601,6 +598,9 @@ function damagePlayer(amount) {
     triggerScreenShake('medium');
     Haptics.medium();
     
+    // Refresh textLayer reference in case world was rebuilt
+    if (!els.textLayer || !els.textLayer.parentNode) els.textLayer = document.getElementById('damage-text-layer');
+    
     createFloatingText(state.heroPosition.x, state.heroPosition.y - 15, `-${amount}`, 'crit');
     ParticleEngine.bloodBurst(state.heroPosition.x, state.heroPosition.y, 0, -1);
 
@@ -621,6 +621,9 @@ function damagePlayer(amount) {
             });
         }
     }
+
+    // 3D Damage Flash
+    ThreeEngine.flashDamage();
 
     if (state.player.hp <= 0) {
         Haptics.death();
@@ -650,6 +653,14 @@ function levelUp() {
     ParticleEngine.levelUpBurst(state.heroPosition.x, state.heroPosition.y);
     createFloatingText(state.heroPosition.x, state.heroPosition.y - 40, "LEVEL UP!", 'level-up');
     
+    // Level-up choice panel every 5 levels (but not on boss levels to avoid conflict)
+    const isBossLevel = state.level % 10 === 0;
+    if (state.level % 5 === 0 && !isBossLevel) {
+        setTimeout(() => {
+            if (typeof showLevelUpChoice === 'function') showLevelUpChoice();
+        }, 600);
+    }
+    
     // Anime.js Level Up Shockwave
     if (window.anime) {
         anime({
@@ -661,8 +672,7 @@ function levelUp() {
     }
 
     if (state.level % 10 === 0) {
-        Dialogue.show(state.level);
-        Weather.intensity = Math.min(1, Weather.intensity + 0.1);
+        updateWeatherForLevel(state.level);
     }
     updateUI();
     
@@ -705,11 +715,13 @@ function spawnPowerup(x, y) {
     const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
     const el = document.createElement('div');
     el.className = 'powerup'; 
-    el.innerHTML = `<i data-lucide="${type.emoji}"></i>`;
+    el.innerHTML = `${type.emoji}`;
     el.style.left = `${x}px`; el.style.top = `${y}px`;
     els.world.appendChild(el);
-    if (window.lucide) window.lucide.createIcons();
-    state.powerups.push({ el, x, y, type: type.type, label: type.label, life: 10000 });
+    const pwId = 'pw_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    ThreeEngine.spawn(pwId, 'powerup');
+    ThreeEngine.updateEntity(pwId, x, y);
+    state.powerups.push({ el, x, y, type: type.type, label: type.label, life: 10000, _3dId: pwId });
 }
 
 function updatePowerups(dt) {
@@ -720,11 +732,15 @@ function updatePowerups(dt) {
         // Check pickup
         const dx = state.heroPosition.x - p.x, dy = state.heroPosition.y - p.y;
         if (dx*dx + dy*dy < 50*50) {
-            pickupPowerup(p); p.el.remove(); state.powerups.splice(i, 1); continue;
+            pickupPowerup(p); p.el.remove();
+            ThreeEngine.removeEntity(p._3dId);
+            ThreeEngine.burstAt(p.x, p.y, '#00ff88', 12);
+            state.powerups.splice(i, 1); continue;
         }
 
         if (p.life <= 0) {
             p.el.classList.add('despawning');
+            ThreeEngine.removeEntity(p._3dId);
             setTimeout(() => { if (p.el.parentNode) p.el.remove(); }, 300);
             state.powerups.splice(i, 1);
         }
@@ -779,12 +795,13 @@ function updateBuffsUI() {
 
 // ========== COMBO ==========
 function updateComboUI() {
-    const el = document.getElementById('combo-container');
+    const el = document.getElementById('combo-display');
     const num = document.getElementById('combo-count');
     const mult = document.getElementById('combo-mult');
     if (!el || !num || !mult) return;
 
     if (state.combo > 0) {
+        el.classList.remove('hidden');
         el.classList.add('active');
         num.innerText = state.combo;
         mult.innerText = `x${state.comboMult.toFixed(1)}`;
@@ -800,7 +817,17 @@ function updateComboUI() {
             });
         }
     } else {
+        el.classList.add('hidden');
         el.classList.remove('active');
+    }
+}
+
+// ========== COMBO TIMEOUT DECAY ==========
+function updateCombo(time) {
+    if (state.combo > 0 && time - state.lastComboHit > 3000) {
+        state.combo = 0;
+        state.comboMult = 1;
+        updateComboUI();
     }
 }
 
@@ -835,11 +862,13 @@ function updateCooldowns(time) {
 
 // ========== VISUAL FX ==========
 function createFloatingText(x, y, text, type) {
+    const layer = document.getElementById('damage-text-layer') || els.textLayer;
+    if (!layer) return;
     const el = document.createElement('div');
     el.className = `floating-text ${type}`; el.innerText = text;
     el.style.left = `${x + (Math.random()-0.5)*40}px`;
     el.style.top = `${y}px`;
-    els.textLayer.appendChild(el);
+    layer.appendChild(el);
 
     if (window.anime) {
         anime({
@@ -857,13 +886,15 @@ function createFloatingText(x, y, text, type) {
 }
 
 function createImpactSlash(x, y, isCrit) {
+    const layer = document.getElementById('damage-text-layer') || els.textLayer;
+    if (!layer) return;
     for (let i = 0; i < (isCrit ? 3 : 1); i++) {
         const s = document.createElement('div');
         s.className = 'slash-effect'; 
         s.style.left = `${x}px`; s.style.top = `${y}px`;
         const rot = Math.random() * 360;
         s.style.transform = `translate(-50%, -50%) rotate(${rot}deg) scaleX(0)`;
-        els.textLayer.appendChild(s);
+        layer.appendChild(s);
 
         if (window.anime) {
             anime({
@@ -952,6 +983,20 @@ function updateUI() {
     updateHealthUI();
     els.hud.levelDisplay.innerText = state.level;
     const prog = state.level % 10 === 0 ? 100 : (state.enemiesDefeatedInLevel/state.enemiesRequiredForNextLevel)*100;
+
+    // Kill counter
+    const killCounter = document.getElementById('kill-counter');
+    const killCount = document.getElementById('kill-count');
+    const killReq = document.getElementById('kill-req');
+    if (killCounter && killCount && killReq) {
+        if (state.isRunning && !state.betweenWaves && state.enemies.length > 0) {
+            killCounter.classList.remove('hidden');
+            killCount.innerText = state.enemiesDefeatedInLevel;
+            killReq.innerText = state.enemiesRequiredForNextLevel;
+        } else {
+            killCounter.classList.add('hidden');
+        }
+    }
     const targetWidth = `${Math.min(100, prog)}%`;
     
     if (window.anime) {
@@ -1124,7 +1169,14 @@ function createMarketItemHTML(item, cat) {
     return el;
 }
 
-window.buyMarketItem = (id, cost) => { if (state.totalLifetimePoints >= cost) { state.totalLifetimePoints -= cost; state.unlockedItems.push(id); saveGame(); renderMarketplace(); SFX.upgrade(); } };
+window.buyMarketItem = (id, cost) => { 
+    if (state.totalLifetimePoints >= cost) { 
+        state.totalLifetimePoints -= cost; 
+        state.points = Math.max(0, state.points - Math.min(state.points, cost));
+        state.unlockedItems.push(id); 
+        saveGame(); renderMarketplace(); SFX.upgrade(); 
+    } 
+};
 window.equipMarketItem = (id, cat) => { if (cat === 'skin') state.equippedSkin = id; else state.equippedAura = id; saveGame(); renderMarketplace(); SFX.shoot(); };
 
 // ========== TRADE SYSTEM ==========

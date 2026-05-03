@@ -1,27 +1,27 @@
 // ========== CONFIG ==========
-const ENEMY_EMOJIS = ['skull', 'ghost', 'biohazard', 'radiation', 'bomb', 'flame', 'crosshair', 'target', 'axe', 'sword'];
-const BOSS_EMOJIS = ['skull', 'flame', 'tornado', 'eye', 'zap'];
-const FINAL_BOSS_EMOJI = 'crown';
-const RESCUED_POOL = ['user', 'users', 'shield-check', 'swords'];
+const ENEMY_EMOJIS = ['💀', '👻', '☣️', '☢️', '💣', '🔥', '🎯', '🎯', '🪓', '⚔️'];
+const BOSS_EMOJIS = ['💀', '🔥', '🌪️', '👁️', '⚡'];
+const FINAL_BOSS_EMOJI = '👑';
+const RESCUED_POOL = ['👤', '👥', '🛡️', '⚔️'];
 const POWERUP_TYPES = [
-    { emoji: 'heart', type: 'health', label: '+HP' },
-    { emoji: 'zap', type: 'speed', label: 'SPEED!' },
-    { emoji: 'swords', type: 'damage', label: 'POWER!' },
-    { emoji: 'shield', type: 'shield', label: 'SHIELD!' }
+    { emoji: '❤️', type: 'health', label: '+HP' },
+    { emoji: '⚡', type: 'speed', label: 'SPEED!' },
+    { emoji: '⚔️', type: 'damage', label: 'POWER!' },
+    { emoji: '🛡️', type: 'shield', label: 'SHIELD!' }
 ];
 const HERO_CLASSES = {
-    balanced: { emoji:'sword', maxHp:100, hp:100, damage:10, attackSpeed:800, critChance:0.1, speed:3, range:100, hpRegen:0.5, abilityCD:8000, abilityIcon:'zap', projEmoji:null },
-    tank:     { emoji:'shield', maxHp:250, hp:250, damage:12, attackSpeed:1200, critChance:0.05, speed:2, range:80, hpRegen:2, abilityCD:10000, abilityIcon:'shield-alert', projEmoji:null },
-    assassin: { emoji:'scissors', maxHp:60, hp:60, damage:15, attackSpeed:500, critChance:0.3, speed:4.5, range:80, hpRegen:0, abilityCD:6000, abilityIcon:'user-x', projEmoji:null },
-    mage:     { emoji:'eye', maxHp:80, hp:80, damage:25, attackSpeed:1000, critChance:0.1, speed:2.5, range:350, hpRegen:0.3, abilityCD:7000, abilityIcon:'flame', projEmoji:'sparkles' },
-    archer:   { emoji:'crosshair', maxHp:90, hp:90, damage:18, attackSpeed:600, critChance:0.2, speed:3.5, range:400, hpRegen:0, abilityCD:8000, abilityIcon:'target', projEmoji:'arrow-right' }
+    balanced: { emoji:'⚔️', maxHp:100, hp:100, damage:10, attackSpeed:800, critChance:0.1, speed:3, range:100, hpRegen:0.5, abilityCD:8000, abilityIcon:'🌀', projEmoji:null },
+    tank:     { emoji:'🛡️', maxHp:250, hp:250, damage:12, attackSpeed:1200, critChance:0.05, speed:2, range:80, hpRegen:2, abilityCD:10000, abilityIcon:'🛡️', projEmoji:null },
+    assassin: { emoji:'✂️', maxHp:60, hp:60, damage:15, attackSpeed:500, critChance:0.3, speed:4.5, range:80, hpRegen:0, abilityCD:6000, abilityIcon:'👤', projEmoji:null },
+    mage:     { emoji:'👁️', maxHp:80, hp:80, damage:25, attackSpeed:1000, critChance:0.1, speed:2.5, range:350, hpRegen:0.3, abilityCD:7000, abilityIcon:'🔥', projEmoji:'✨' },
+    archer:   { emoji:'🎯', maxHp:90, hp:90, damage:18, attackSpeed:600, critChance:0.2, speed:3.5, range:400, hpRegen:0, abilityCD:8000, abilityIcon:'🎯', projEmoji:'🏹' }
 };
 const MARKET_ITEMS = {
     skins: [
-        { id:'skin_base', name:'Default', type:'skin', cost:0, emoji:'sword' },
-        { id:'skin_ninja', name:'Wraith', type:'skin', cost:500, emoji:'ghost' },
-        { id:'skin_demon', name:'Hellspawn', type:'skin', cost:1500, emoji:'skull' },
-        { id:'skin_mech', name:'Dreadnought', type:'skin', cost:3000, emoji:'cpu' }
+        { id:'skin_base', name:'Default', type:'skin', cost:0, emoji:'⚔️' },
+        { id:'skin_ninja', name:'Wraith', type:'skin', cost:500, emoji:'👻' },
+        { id:'skin_demon', name:'Hellspawn', type:'skin', cost:1500, emoji:'💀' },
+        { id:'skin_mech', name:'Dreadnought', type:'skin', cost:3000, emoji:'🤖' }
     ],
     auras: [
         { id:'aura_none', name:'No Aura', type:'aura', cost:0, class:'' },
@@ -167,6 +167,16 @@ function bindEvents() {
     });
     els.buttons.storeToggle.addEventListener('click', () => els.upgrades.storeRef.classList.toggle('hidden'));
     els.buttons.storeClose.addEventListener('click', () => els.upgrades.storeRef.classList.add('hidden'));
+    
+    const closeLvBtn = $('close-levelup-btn');
+    if (closeLvBtn) {
+        closeLvBtn.addEventListener('click', () => {
+            $('levelup-panel').classList.add('hidden');
+            state.isRunning = true;
+            state.lastTick = performance.now();
+            requestAnimationFrame(gameLoop);
+        });
+    }
 
     // ===== MOBILE CONTROLS =====
     // Joystick
@@ -292,24 +302,31 @@ async function handleRegistration() {
 
 // ========== SCREEN MANAGEMENT ==========
 function showScreen(name) {
-    Object.entries(els.screens).forEach(([k, s]) => {
-        if (k === name) {
-            s.classList.remove('hidden');
-            s.classList.add('active');
-            if (window.anime) {
-                anime({
-                    targets: s,
-                    opacity: [0, 1],
-                    scale: [1.05, 1],
-                    duration: 800,
-                    easing: 'easeOutQuart'
-                });
-            }
-        } else {
-            s.classList.remove('active');
-            s.classList.add('hidden');
-        }
+    // Hide ALL screens including marketplace to prevent overlays
+    const allOverlays = [...Object.values(els.screens), els.marketplace.screen];
+    allOverlays.forEach(s => {
+        if (window.anime) anime.remove(s);
+        s.classList.remove('active');
+        s.classList.add('hidden');
+        s.style.opacity = '';
+        s.style.transform = '';
     });
+
+    const target = els.screens[name];
+    if (target) {
+        target.classList.remove('hidden');
+        target.classList.add('active');
+        target.style.opacity = '1';
+        if (window.anime) {
+            anime({
+                targets: target,
+                opacity: [0, 1],
+                scale: [1.05, 1],
+                duration: 800,
+                easing: 'easeOutQuart'
+            });
+        }
+    }
 }
 
 function showStoryScreen() {
@@ -368,6 +385,7 @@ function startGame(isLoading = false) {
     Dialogue.init();
     Letterbox.init();
     Weather.init();
+    ThreeEngine.init();
     updateWeatherForLevel(state.level);
 
     generateBattleground();
@@ -470,6 +488,13 @@ function gameLoop(t) {
     ParticleEngine.update(dt);
     Weather.update(dt);
 
+    // Minimap
+    updateMinimap();
+
+    // 3D Sync
+    ThreeEngine.updateEntity('hero', state.heroPosition.x, state.heroPosition.y);
+    ThreeEngine.updateCamera(state.heroPosition.x, state.heroPosition.y);
+
     requestAnimationFrame(gameLoop);
 }
 
@@ -481,13 +506,16 @@ function createHero() {
     let iconName = state.player.emoji;
     const skin = MARKET_ITEMS.skins.find(s => s.id === state.equippedSkin);
     if (skin && skin.id !== 'skin_base') iconName = skin.emoji;
-    hero.innerHTML = `<i data-lucide="${iconName}"></i>`;
+    hero.innerHTML = `<div class="hero-inner">${iconName}</div>`;
     const aura = MARKET_ITEMS.auras.find(a => a.id === state.equippedAura);
     if (aura && aura.id !== 'aura_none') hero.classList.add(aura.class);
     els.world.appendChild(hero);
     state.heroElement = hero;
+
+    // 3D Spawn
+    ThreeEngine.spawn('hero', 'hero');
+
     updateHeroPos();
-    if (window.lucide) window.lucide.createIcons();
 }
 
 function updateHeroPos() {
@@ -583,4 +611,93 @@ function createDashTrail(x, y) {
     trail.style.left = `${x}px`; trail.style.top = `${y}px`;
     els.world.appendChild(trail);
     setTimeout(() => { if (trail.parentNode) trail.remove(); }, 300);
+}
+
+// ========== MINIMAP ==========
+function updateMinimap() {
+    const canvas = document.getElementById('minimap-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const worldRect = els.world.getBoundingClientRect();
+    const ww = worldRect.width || 300, wh = worldRect.height || 500;
+    const sx = w / ww, sy = h / wh;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Background
+    ctx.fillStyle = 'rgba(5,2,2,0.9)';
+    ctx.fillRect(0, 0, w, h);
+
+    // Enemies
+    for (const e of state.enemies) {
+        if (e.hp <= 0) continue;
+        ctx.fillStyle = e.isBoss || e.isFinalBoss ? '#ff4400' : (e.isElite ? '#aa00ff' : '#cc0000');
+        const size = e.isBoss ? 4 : 2.5;
+        ctx.beginPath();
+        ctx.arc(e.x * sx, e.y * sy, size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Powerups
+    for (const p of state.powerups) {
+        ctx.fillStyle = '#00ff88';
+        ctx.beginPath();
+        ctx.arc(p.x * sx, p.y * sy, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Hero
+    ctx.fillStyle = '#00f0ff';
+    ctx.shadowColor = '#00f0ff';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(state.heroPosition.x * sx, state.heroPosition.y * sy, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+}
+
+// ========== LEVEL-UP CHOICE SYSTEM ==========
+const LEVELUP_CHOICES = [
+    { id: 'dmg_up',    icon: '⚔️', name: '+25% Damage',      desc: 'Permanent damage boost',         apply: () => { state.player.damage = Math.floor(state.player.damage * 1.25); } },
+    { id: 'hp_up',     icon: '❤️', name: '+30% Max HP',      desc: 'Gain more maximum health',        apply: () => { const add = Math.floor(state.player.maxHp * 0.3); state.player.maxHp += add; state.player.hp = Math.min(state.player.maxHp, state.player.hp + add); } },
+    { id: 'spd_up',    icon: '💨', name: 'Faster Attacks',   desc: 'Attack speed -15%',               apply: () => { state.player.attackSpeed = Math.max(100, Math.floor(state.player.attackSpeed * 0.85)); } },
+    { id: 'regen_up',  icon: '🌿', name: '+1 HP Regen/s',    desc: 'Passive health regeneration',     apply: () => { state.player.hpRegen = (state.player.hpRegen || 0) + 1; } },
+    { id: 'crit_up',   icon: '💥', name: '+10% Crit Chance', desc: 'More critical hits',              apply: () => { state.player.critChance = Math.min(0.8, state.player.critChance + 0.10); } },
+    { id: 'range_up',  icon: '🎯', name: '+30% Range',       desc: 'Attack from further away',        apply: () => { state.player.range = Math.floor(state.player.range * 1.3); } },
+    { id: 'heal_now',  icon: '💊', name: 'Full Heal',        desc: 'Restore all health now',          apply: () => { state.player.hp = state.player.maxHp; updateHealthUI(); } },
+    { id: 'move_up',   icon: '🥾', name: 'Swift Feet',       desc: 'Move speed +0.5',                 apply: () => { state.player.speed += 0.5; } },
+];
+
+function showLevelUpChoice() {
+    const panel = document.getElementById('levelup-panel');
+    if (!panel) return;
+    state.isRunning = false;
+
+    // Pick 3 random unique choices
+    const shuffled = [...LEVELUP_CHOICES].sort(() => Math.random() - 0.5).slice(0, 3);
+    const choicesEl = document.getElementById('levelup-choices');
+    choicesEl.innerHTML = '';
+
+    shuffled.forEach(choice => {
+        const btn = document.createElement('button');
+        btn.className = 'levelup-choice-btn';
+        btn.innerHTML = `<span class="levelup-choice-icon">${choice.icon}</span>
+            <span class="levelup-choice-text">
+                <span class="levelup-choice-name">${choice.name}</span>
+                <span class="levelup-choice-desc">${choice.desc}</span>
+            </span>`;
+        btn.addEventListener('click', () => {
+            choice.apply();
+            panel.classList.add('hidden');
+            state.isRunning = true;
+            state.lastTick = performance.now();
+            requestAnimationFrame(gameLoop);
+            SFX.upgrade();
+            createFloatingText(state.heroPosition.x, state.heroPosition.y - 40, `${choice.icon} ${choice.name}`, 'heal');
+        });
+        choicesEl.appendChild(btn);
+    });
+
+    panel.classList.remove('hidden');
 }
