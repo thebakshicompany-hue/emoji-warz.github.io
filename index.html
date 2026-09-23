@@ -34,6 +34,7 @@
 
                 <div id="lobby-join-controls">
                     <button id="mp-quick-match-btn" class="glow-btn" style="width: 100%;">QUICK MATCH</button>
+                    <button id="mp-create-btn" class="glow-btn mt-20" style="width: 100%; background: linear-gradient(45deg, #00cc66, #00ff99); color: black;">CREATE ROOM</button>
                     <div class="lobby-row mt-20">
                         <input type="text" id="mp-room-code" class="neon-input" placeholder="Room Code" maxlength="8" style="text-transform: uppercase;">
                         <button id="mp-join-code-btn" class="glow-btn small-btn">JOIN</button>
@@ -152,26 +153,49 @@
         <div id="game-ui" class="screen hidden">
             <!-- Top HUD -->
             <div id="hud">
-                <div class="hud-top-row">
+                <div class="hud-grid">
                     <div class="hud-left">
                         <div class="level-indicator">LV <span id="level-display">1</span></div>
                         <div class="stat-row"><span class="stat-icon">💎</span><span id="points-display" class="stat-value points-glow">0</span></div>
                         <div id="wave-timer" class="wave-timer hidden">WAVE: <span id="wave-countdown">5</span>s</div>
                         <div id="kill-counter" class="kill-counter hidden">⚔️ <span id="kill-count">0</span>/<span id="kill-req">5</span></div>
-                    </div>
-                    <div class="hud-center">
                         <div id="mp-connection-badge" class="mp-badge hidden">🟢 CO-OP</div>
                     </div>
-                    <div class="hud-right">
-                        <button id="save-btn" class="hud-btn">💾</button>
-                        <button id="save-quit-btn" class="hud-btn hud-btn-danger">🚪</button>
-                    </div>
-                </div>
 
-                <!-- Hero HP Bar -->
-                <div id="hero-hp-bar" class="hero-hp-bar">
-                    <div id="hero-hp-fill" class="hero-hp-fill"></div>
-                    <span id="health-text" class="hero-hp-text">100/100</span>
+                    <div class="hud-health-slot">
+                        <div id="hero-hp-bar" class="hero-hp-bar">
+                            <div id="hero-hp-fill" class="hero-hp-fill"></div>
+                            <span id="health-text" class="hero-hp-text">100/100</span>
+                        </div>
+                    </div>
+
+                    <div class="hud-right">
+                        <div id="fps-counter" class="fps-counter-inline">-- FPS</div>
+                        <button id="pause-btn" class="hud-btn" title="Pause">⏸️</button>
+                        <div class="settings-wrap">
+                            <button id="settings-btn" class="hud-btn" title="Settings">⚙️</button>
+                            <div id="settings-panel" class="settings-panel hidden">
+                                <button id="save-btn" class="hud-btn">💾 Save</button>
+                                <button id="save-quit-btn" class="hud-btn hud-btn-danger">🚪 Quit</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hud-buffs-slot">
+                        <div id="active-buffs" class="active-buffs"></div>
+                    </div>
+
+                    <div class="hud-side-slot">
+                        <div id="minimap-container">
+                            <canvas id="minimap-canvas" width="100" height="100"></canvas>
+                        </div>
+                        <div id="trade-panel" class="trade-panel">
+                            <button class="trade-btn" onclick="tradeSystem('points')" title="1 Pet → 500💎">💎<span class="trade-cost">1🐾</span></button>
+                            <button class="trade-btn" onclick="tradeSystem('health')" title="3 Pets → Full Heal">❤️<span class="trade-cost">3🐾</span></button>
+                            <button class="trade-btn" onclick="tradeSystem('maxhealth')" title="5 Pets → +50 Max HP">🛡️<span class="trade-cost">5🐾</span></button>
+                            <button class="trade-btn" onclick="tradeSystem('damage')" title="5 Pets → +20% DMG">⚔️<span class="trade-cost">5🐾</span></button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Co-op teammates -->
@@ -189,19 +213,16 @@
                     <span id="combo-mult" class="combo-mult">x1</span>
                 </div>
 
-                <!-- Active Buffs -->
-                <div id="active-buffs" class="active-buffs"></div>
-
-                <!-- Rescued Allies & Trades -->
+                <!-- Rescued Allies -->
                 <div class="allies-row">
                     <div id="rescued-container" class="rescued-container"></div>
-                    <div id="trade-panel" class="trade-panel">
-                        <button class="trade-btn" onclick="tradeSystem('points')" title="1 Pet → 500💎">💎<span class="trade-cost">1🐾</span></button>
-                        <button class="trade-btn" onclick="tradeSystem('health')" title="3 Pets → Full Heal">❤️<span class="trade-cost">3🐾</span></button>
-                        <button class="trade-btn" onclick="tradeSystem('maxhealth')" title="5 Pets → +50 Max HP">🛡️<span class="trade-cost">5🐾</span></button>
-                        <button class="trade-btn" onclick="tradeSystem('damage')" title="5 Pets → +20% DMG">⚔️<span class="trade-cost">5🐾</span></button>
-                    </div>
                 </div>
+            </div>
+
+            <!-- Pause Overlay -->
+            <div id="pause-panel" class="glass-panel hidden">
+                <h3 class="levelup-title">⏸️ PAUSED</h3>
+                <button id="resume-btn" class="glow-btn mt-20" style="width: 100%;">RESUME</button>
             </div>
 
             <!-- Game World (Overlay/Legacy) -->
@@ -211,7 +232,6 @@
                 <div id="cinematic-vignette"></div>
                 <canvas id="particle-canvas"></canvas>
                 <div id="rage-overlay"></div>
-                <div id="fps-counter">-- FPS</div>
                 <div id="battleground-elements"></div>
                 <div id="damage-text-layer"></div>
                 <div id="letterbox-top"></div>
@@ -274,14 +294,9 @@
                 </div>
             </div>
 
-            <button id="store-toggle-btn" class="store-toggle-btn">🛒</button>
-            
-            <div id="boss-warning" class="hidden">⚠️ BOSS APPROACHING ⚠️</div>
+            <button id="store-toggle-btn" class="store-toggle-btn"><span class="store-toggle-icon">🛒</span><span class="store-toggle-label">Shop</span></button>
 
-            <!-- Minimap -->
-            <div id="minimap-container">
-                <canvas id="minimap-canvas" width="100" height="100"></canvas>
-            </div>
+            <div id="boss-warning" class="hidden">⚠️ BOSS APPROACHING ⚠️</div>
 
             <!-- Level Up Choice Panel -->
             <div id="levelup-panel" class="glass-panel hidden">

@@ -75,8 +75,32 @@ let state = {
     // Rage
     rageMode: false, rageOverlay: null,
     // Trails
-    lastTrailTime: 0
+    lastTrailTime: 0,
+    // Manual pause (distinct from the ad-hoc isRunning=false used by cutscenes/level-up)
+    userPaused: false
 };
+
+// Only lets the player pause mid-gameplay, not mid-cutscene/level-up-choice —
+// those already drive isRunning themselves and resume it on their own timer,
+// so pausing on top of them could leave two independent gameLoop chains
+// running once both try to resume.
+function togglePause() {
+    const panel = $('pause-panel'), btn = $('pause-btn');
+    if (!state.userPaused) {
+        if (!state.isRunning) return; // mid-cutscene/level-up — not ours to pause
+        state.userPaused = true;
+        state.isRunning = false;
+        panel?.classList.remove('hidden');
+        if (btn) btn.innerText = '▶️';
+    } else {
+        state.userPaused = false;
+        panel?.classList.add('hidden');
+        if (btn) btn.innerText = '⏸️';
+        state.isRunning = true;
+        state.lastTick = performance.now();
+        requestAnimationFrame(gameLoop);
+    }
+}
 
 // ========== PLAYER PROFILE (local, no account needed) ==========
 const Profile = {
@@ -193,7 +217,25 @@ function bindEvents() {
     });
     els.buttons.storeToggle.addEventListener('click', () => els.upgrades.storeRef.classList.toggle('hidden'));
     els.buttons.storeClose.addEventListener('click', () => els.upgrades.storeRef.classList.add('hidden'));
-    
+
+    // Settings dropdown (⚙️) — houses Save / Quit so the HUD only needs one icon
+    const settingsBtn = $('settings-btn'), settingsPanel = $('settings-panel');
+    if (settingsBtn && settingsPanel) {
+        settingsBtn.addEventListener('click', e => { e.stopPropagation(); settingsPanel.classList.toggle('hidden'); });
+        document.addEventListener('click', e => {
+            if (!settingsPanel.classList.contains('hidden') && !settingsPanel.contains(e.target) && e.target !== settingsBtn) {
+                settingsPanel.classList.add('hidden');
+            }
+        });
+        els.buttons.save?.addEventListener('click', () => settingsPanel.classList.add('hidden'));
+        els.buttons.saveQuit?.addEventListener('click', () => settingsPanel.classList.add('hidden'));
+    }
+
+    // Pause (⏸️)
+    const pauseBtn = $('pause-btn'), pausePanel = $('pause-panel'), resumeBtn = $('resume-btn');
+    if (pauseBtn) pauseBtn.addEventListener('click', togglePause);
+    if (resumeBtn) resumeBtn.addEventListener('click', () => { if (!state.isRunning) togglePause(); });
+
     const closeLvBtn = $('close-levelup-btn');
     if (closeLvBtn) {
         closeLvBtn.addEventListener('click', () => {
@@ -365,8 +407,10 @@ function startGame(isLoading = false) {
             combo: 0, lastComboHit: 0, comboMult: 1, comboSwing: 0, activeBuffs: [],
             isDodging: false, dodgeCooldown: 0, lastDodgeTime: 0,
             abilityCooldown: 0, lastAbilityTime: 0, betweenWaves: false, waveTimer: 0,
-            rageMode: false, lastTrailTime: 0
+            rageMode: false, lastTrailTime: 0, userPaused: false
         });
+        $('pause-panel')?.classList.add('hidden');
+        const pauseBtnEl = $('pause-btn'); if (pauseBtnEl) pauseBtnEl.innerText = '⏸️';
         state.upgrades = {
             damage: { level:1, cost:10, baseCost:10, mult:1.5, costMult:1.5 },
             health: { level:1, cost:15, baseCost:15, mult:1.5, costMult:1.5 },
@@ -377,7 +421,10 @@ function startGame(isLoading = false) {
         state.heroVelocity = { x: 0, y: 0 }; state.rageMode = false;
     }
 
-    els.world.innerHTML = '<canvas id="weather-canvas"></canvas><div id="atmosphere-layer"></div><div id="cinematic-vignette"></div><canvas id="particle-canvas"></canvas><div id="rage-overlay"></div><div id="fps-counter">-- FPS</div><div id="battleground-elements"></div><div id="damage-text-layer"></div><div id="letterbox-top"></div><div id="letterbox-bottom"></div><div id="dialogue-box"><div id="dialogue-speaker" class="dialogue-speaker"></div><div id="dialogue-text" class="dialogue-text"></div><div class="dialogue-prompt">TAP TO CONTINUE \u25b6</div></div>';
+    // Note: #fps-counter and #minimap-container now live permanently in the
+    // HUD grid (index.html), not in this rebuilt innerHTML \u2014 they used to be
+    // recreated here on every new game, which would now duplicate their IDs.
+    els.world.innerHTML = '<canvas id="weather-canvas"></canvas><div id="atmosphere-layer"></div><div id="cinematic-vignette"></div><canvas id="particle-canvas"></canvas><div id="rage-overlay"></div><div id="battleground-elements"></div><div id="damage-text-layer"></div><div id="letterbox-top"></div><div id="letterbox-bottom"></div><div id="dialogue-box"><div id="dialogue-speaker" class="dialogue-speaker"></div><div id="dialogue-text" class="dialogue-text"></div><div class="dialogue-prompt">TAP TO CONTINUE \u25b6</div></div>';
     els.textLayer = document.getElementById('damage-text-layer');
     state.rageOverlay = document.getElementById('rage-overlay');
     els.buttons.abilityIcon.innerText = state.player.abilityIcon || '\ud83c\udf00';

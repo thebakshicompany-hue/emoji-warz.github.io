@@ -48,6 +48,7 @@ const Multiplayer = {
         };
 
         document.getElementById('mp-quick-match-btn')?.addEventListener('click', () => this.quickMatch());
+        document.getElementById('mp-create-btn')?.addEventListener('click', () => this.createRoom());
         document.getElementById('mp-join-code-btn')?.addEventListener('click', () => {
             const code = document.getElementById('mp-room-code').value.trim();
             if (code) this.joinByCode(code);
@@ -109,6 +110,22 @@ const Multiplayer = {
         } catch (e) {
             console.error('[Multiplayer] quickMatch failed', e);
             this._setError('Could not reach the multiplayer server. Is it deployed and awake?');
+            this.els.status.innerText = 'Not connected';
+        }
+    },
+
+    // Forces a brand-new private room (unlike quickMatch, which may drop you
+    // into an existing public one) so you get a fresh code to hand to friends.
+    async createRoom() {
+        const client = this._getClient();
+        if (!client) return;
+        this._setError(''); this.els.status.innerText = 'Creating room…';
+        try {
+            const room = await client.create('emoji_warz', { name: Profile.name || 'Player', hero: state.selectedClass || 'balanced' });
+            this._onJoined(room);
+        } catch (e) {
+            console.error('[Multiplayer] createRoom failed', e);
+            this._setError('Could not create a room right now.');
             this.els.status.innerText = 'Not connected';
         }
     },
