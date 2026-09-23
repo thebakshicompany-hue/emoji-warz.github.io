@@ -287,10 +287,13 @@ function getBossConversation(level) {
     return CONVERSATIONS.bossIntro10;
 }
 
-// Change weather based on level
+// Change weather (2D particles) AND the 3D battlefield's aesthetic theme
+// (sky/fog/ground/lighting/embers) together at the same level breakpoints —
+// see THREE_ENGINE_THEMES in render3d.js for what each theme looks like.
 function updateWeatherForLevel(level) {
-    if (level >= 80) Weather.setType('ash');
-    else if (level >= 50) Weather.setType('embers');
-    else if (level >= 20) Weather.setType('dust');
-    else Weather.setType('embers');
+    if (level >= 100) { Weather.setType('ash'); ThreeEngine.setTheme?.('voidthrone'); }
+    else if (level >= 80) { Weather.setType('ash'); ThreeEngine.setTheme?.('ashfall'); }
+    else if (level >= 50) { Weather.setType('embers'); ThreeEngine.setTheme?.('hellfire'); }
+    else if (level >= 20) { Weather.setType('dust'); ThreeEngine.setTheme?.('ashlands'); }
+    else { Weather.setType('embers'); ThreeEngine.setTheme?.('wasteland'); }
 }

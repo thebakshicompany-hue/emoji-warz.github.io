@@ -15,6 +15,39 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
+// Distinct aesthetic backgrounds for the battlefield, one per level tier —
+// same war-arena layout throughout, but the sky, fog, ground, lighting and
+// embers all shift palette so the world visibly changes as you progress.
+// Kept in sync with cinematic.js's updateWeatherForLevel(), which switches
+// the 2D weather particles (dust/embers/ash) at the same breakpoints.
+const THREE_ENGINE_THEMES = {
+    wasteland: { // levels 1-19 — the original war-torn look
+        skyTop: '#1a0505', skyBottom: '#030303', fogColor: '#050304', fogDensity: 0.007,
+        groundColor: '#0a0a0a', gridColor1: '#220000', gridColor2: '#0a0000', debrisColor: '#1a1a1a',
+        hemiSky: '#445577', hemiGround: '#1a0505', mainColor: '#8899cc', rimColor: '#330011', emberColor: '#ff5500'
+    },
+    ashlands: { // levels 20-49 — dusty, sun-bleached ruins
+        skyTop: '#2a2018', skyBottom: '#0f0d0a', fogColor: '#15120d', fogDensity: 0.009,
+        groundColor: '#15120d', gridColor1: '#3a2f1a', gridColor2: '#151008', debrisColor: '#241f16',
+        hemiSky: '#665533', hemiGround: '#1a1208', mainColor: '#ccaa77', rimColor: '#443311', emberColor: '#cc8833'
+    },
+    hellfire: { // levels 50-79 — intense fire/lava theme
+        skyTop: '#3a0800', skyBottom: '#0a0000', fogColor: '#200400', fogDensity: 0.008,
+        groundColor: '#180300', gridColor1: '#660000', gridColor2: '#200000', debrisColor: '#221008',
+        hemiSky: '#ff5500', hemiGround: '#1a0000', mainColor: '#ff6633', rimColor: '#661100', emberColor: '#ff2200'
+    },
+    ashfall: { // levels 80-99 — cold, dying-embers ruins before the final climb
+        skyTop: '#1a1a22', skyBottom: '#050508', fogColor: '#0a0a10', fogDensity: 0.01,
+        groundColor: '#0c0c10', gridColor1: '#333344', gridColor2: '#0a0a10', debrisColor: '#18181e',
+        hemiSky: '#556677', hemiGround: '#101015', mainColor: '#7788aa', rimColor: '#222233', emberColor: '#888899'
+    },
+    voidthrone: { // level 100+ — the dark lord's realm / final boss arena
+        skyTop: '#2a0033', skyBottom: '#0a0011', fogColor: '#150022', fogDensity: 0.009,
+        groundColor: '#100018', gridColor1: '#550077', gridColor2: '#150022', debrisColor: '#1a0d22',
+        hemiSky: '#aa00ff', hemiGround: '#200033', mainColor: '#cc44ff', rimColor: '#440066', emberColor: '#ff00ff'
+    }
+};
+
 const ThreeEngine = {
     scene: null,
     camera: null,
@@ -24,11 +57,16 @@ const ThreeEngine = {
     container: null,
     entities: new Map(),
     ground: null,
+    grid: null,
+    sky: null,
+    debrisMat: null,
     lights: {},
     debris: [],
     embers: null,
     ready: false,
     _baseFov: 50,
+    _currentTheme: null,
+    THEMES: THREE_ENGINE_THEMES,
 
     init() {
         this.container = document.getElementById('three-container');
@@ -56,6 +94,7 @@ const ThreeEngine = {
         this.container.appendChild(this.renderer.domElement);
 
         this._buildEnvironment();
+        this._buildSky();
         this._buildLighting();
         this._buildGround();
         this._buildDebris();
@@ -90,6 +129,76 @@ const ThreeEngine = {
         const pmrem = new THREE.PMREMGenerator(this.renderer);
         this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
         pmrem.dispose();
+    },
+
+    // A simple two-tone gradient sky, swapped per theme — gives real visual
+    // depth (an actual "background") instead of a flat color behind the fog.
+    _makeSkyTexture(topColor, bottomColor) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 2; canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        const grad = ctx.createLinearGradient(0, 0, 0, 256);
+        grad.addColorStop(0, topColor);
+        grad.addColorStop(1, bottomColor);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 2, 256);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
+    },
+
+    _buildSky() {
+        const geo = new THREE.SphereGeometry(450, 16, 16);
+        const mat = new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, depthWrite: false });
+        this.sky = new THREE.Mesh(geo, mat);
+        this.scene.add(this.sky);
+    },
+
+    // Swaps the whole battlefield's palette — sky, fog, ground, grid, debris,
+    // key lights, and ember color — for a level-tier theme (see THEMES).
+    // Colors animate in via anime.js when available; otherwise they snap.
+    setTheme(key) {
+        if (!this.ready) return;
+        const theme = this.THEMES[key] || this.THEMES.wasteland;
+        if (this._currentTheme === key) return;
+        this._currentTheme = key;
+
+        // Sky gradient (instant swap — cross-fading two full textures isn't
+        // worth the complexity here)
+        if (this.sky.material.map) this.sky.material.map.dispose();
+        this.sky.material.map = this._makeSkyTexture(theme.skyTop, theme.skyBottom);
+        this.sky.material.needsUpdate = true;
+        this.scene.background = new THREE.Color(theme.skyBottom);
+
+        // Recreate the grid with the new two-tone colors (GridHelper bakes
+        // its colors into vertex data at construction time)
+        if (this.grid) { this.scene.remove(this.grid); this.grid.geometry.dispose(); this.grid.material.dispose(); }
+        this.grid = new THREE.GridHelper(400, 40, theme.gridColor1, theme.gridColor2);
+        this.grid.position.y = 0.05;
+        this.grid.material.opacity = 0.4;
+        this.grid.material.transparent = true;
+        this.scene.add(this.grid);
+
+        const targets = [
+            { obj: this.scene.fog.color, color: theme.fogColor },
+            { obj: this.ground.material.color, color: theme.groundColor },
+            { obj: this.debrisMat.color, color: theme.debrisColor },
+            { obj: this.lights.hemi.color, color: theme.hemiSky },
+            { obj: this.lights.hemi.groundColor, color: theme.hemiGround },
+            { obj: this.lights.main.color, color: theme.mainColor },
+            { obj: this.lights.rim.color, color: theme.rimColor },
+            { obj: this.embers.material.color, color: theme.emberColor }
+        ];
+        this.scene.fog.density = theme.fogDensity;
+
+        if (window.anime) {
+            targets.forEach(({ obj, color }) => {
+                const target = new THREE.Color(color);
+                anime({ targets: obj, r: target.r, g: target.g, b: target.b, duration: 1500, easing: 'easeInOutQuad' });
+            });
+        } else {
+            targets.forEach(({ obj, color }) => obj.set(color));
+        }
     },
 
     _buildLighting() {
@@ -171,13 +280,8 @@ const ThreeEngine = {
         this.ground.rotation.x = -Math.PI / 2;
         this.ground.receiveShadow = true;
         this.scene.add(this.ground);
-
-        // Blood-red grid lines
-        const grid = new THREE.GridHelper(400, 40, 0x220000, 0x0a0000);
-        grid.position.y = 0.05;
-        grid.material.opacity = 0.4;
-        grid.material.transparent = true;
-        this.scene.add(grid);
+        // Grid lines are (re)built per-theme in setTheme(), since GridHelper
+        // bakes its two colors into vertex data at construction time.
     },
 
     _buildDebris() {
@@ -187,13 +291,13 @@ const ThreeEngine = {
             new THREE.OctahedronGeometry(1, 0),
             new THREE.BoxGeometry(2, 1, 1.5)
         ];
-        const mat = new THREE.MeshStandardMaterial({
+        this.debrisMat = new THREE.MeshStandardMaterial({
             color: 0x1a1a1a, roughness: 1.0, metalness: 0.0, flatShading: true, envMapIntensity: 0.4
         });
 
         for (let i = 0; i < 80; i++) {
             const geo = geos[Math.floor(Math.random() * geos.length)];
-            const m = new THREE.Mesh(geo, mat);
+            const m = new THREE.Mesh(geo, this.debrisMat);
             m.position.set(
                 (Math.random() - 0.5) * 350,
                 Math.random() * 0.5,
