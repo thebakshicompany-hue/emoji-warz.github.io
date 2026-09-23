@@ -1,3 +1,13 @@
+// Touch controls (joystick + action buttons) only make sense on touch
+// devices. On mouse/keyboard they used to always render anyway, and the
+// invisible joystick zone has no mouse handlers — so clicking in that
+// screen region silently ate the click instead of reaching the world's
+// click-to-move handler underneath it. Flag it up front so CSS can hide
+// the touch layer entirely for non-touch devices.
+if (!(('ontouchstart' in window) || navigator.maxTouchPoints > 0)) {
+    document.documentElement.classList.add('no-touch');
+}
+
 // ========== CONFIG ==========
 const ENEMY_EMOJIS = ['💀', '👻', '☣️', '☢️', '💣', '🔥', '🎯', '🎯', '🪓', '⚔️'];
 const BOSS_EMOJIS = ['💀', '🔥', '🌪️', '👁️', '⚡'];

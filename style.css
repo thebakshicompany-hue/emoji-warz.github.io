@@ -42,6 +42,25 @@ body {
     #game-container { border-radius: 10px; }
 }
 
+/* The HUD/controls were sized for a narrow mobile screen. On the wider
+   desktop frame, scale them up proportionally instead of leaving them
+   looking tiny and lost in a corner of a much bigger window. */
+@media (min-width: 700px) {
+    :root { --hero-size: 72px; --enemy-size: 54px; --boss-size: 120px; }
+    #hud { padding: 16px 26px; }
+    .level-indicator { font-size: 1.2rem; padding: 6px 14px; }
+    .stat-icon { font-size: 1.4rem; }
+    .stat-value { font-size: 1.2rem; }
+    .points-glow { font-size: 1.4rem; }
+    .hero-hp-bar { height: 20px; }
+    .hero-hp-text { font-size: 0.85rem; }
+    #minimap-container { width: 110px; height: 110px; right: 130px; }
+    .attack-btn { width: 110px; height: 110px; font-size: 3rem; }
+    .dodge-btn, .ability-btn { width: 78px; height: 78px; font-size: 2.1rem; }
+    .joystick-base { width: 160px; height: 160px; }
+    .joystick-thumb { width: 68px; height: 68px; }
+}
+
 .screen {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -167,7 +186,7 @@ body {
 #hud { width: 100%; padding: 8px 12px; z-index: 50; }
 
 .hud-top-row {
-    display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px;
+    display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px;
 }
 .hud-left, .hud-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .hud-left { max-width: 60%; }
@@ -183,9 +202,12 @@ body {
 @keyframes mpPulse { 0%, 100% { opacity: 0.85; } 50% { opacity: 1; } }
 
 .mp-players-hud {
-    display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px;
+    display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+    margin-bottom: 4px; padding-bottom: 2px; scrollbar-width: none;
 }
+.mp-players-hud::-webkit-scrollbar { display: none; }
 .mp-players-hud.hidden { display: none; }
+.mp-player-mini { flex: 0 0 auto; }
 .mp-player-mini {
     display: flex; align-items: center; gap: 5px;
     background: rgba(0,0,0,0.5); border: 1px solid rgba(0,200,255,0.35); border-radius: 20px;
@@ -430,6 +452,14 @@ body {
     display: flex; flex-direction: column; align-items: flex-end;
     gap: 10px; pointer-events: all;
 }
+
+/* Mouse/keyboard devices get no touch layer at all — see the no-touch class
+   set in game.js. Without this, the invisible joystick zone had no mouse
+   handlers and silently swallowed clicks meant for click-to-move. */
+html.no-touch #mobile-controls { display: none; }
+html.no-touch .store-toggle-btn { bottom: 24px; }
+html.no-touch #upgrade-store { bottom: 24px; }
+html.no-touch .save-toast { bottom: 40px; }
 
 .action-btn-touch {
     border: none; border-radius: 50%; color: white; font-size: 1.8rem;
