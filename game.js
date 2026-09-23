@@ -32,13 +32,13 @@ const MARKET_ITEMS = {
         { id:'skin_ninja', name:'Wraith', type:'skin', cost:500, emoji:'👻' },
         { id:'skin_demon', name:'Hellspawn', type:'skin', cost:1500, emoji:'💀' },
         { id:'skin_mech', name:'Dreadnought', type:'skin', cost:3000, emoji:'🤖' },
-        { id:'skin_premium_gold', name:'Golden Champion', type:'skin', cost:0, premium:true, emoji:'🏆' }
+        { id:'skin_golden', name:'Golden Champion', type:'skin', cost:5000, emoji:'🏆' }
     ],
     auras: [
         { id:'aura_none', name:'No Aura', type:'aura', cost:0, class:'' },
         { id:'aura_fire', name:'Flame Aura', type:'aura', cost:1000, class:'aura-fire' },
         { id:'aura_void', name:'Void Aura', type:'aura', cost:2500, class:'aura-void' },
-        { id:'aura_premium', name:'Celestial Aura', type:'aura', cost:0, premium:true, class:'aura-premium' }
+        { id:'aura_celestial', name:'Celestial Aura', type:'aura', cost:4000, class:'aura-celestial' }
     ]
 };
 const STORY_LINES = [
@@ -137,7 +137,7 @@ const els = {
     buffs: $('active-buffs'),
     wave: { timer:$('wave-timer'), countdown:$('wave-countdown') },
     joystick: { zone:$('joystick-zone'), base:$('joystick-base'), thumb:$('joystick-thumb') },
-    buttons: { skip100:$('skip-100-btn'), attack:$('attack-btn'), dodge:$('dodge-btn'), ability:$('ability-btn'), abilityIcon:$('ability-icon'), dodgeCD:$('dodge-cooldown-overlay'), abilityCD:$('ability-cooldown-overlay'), profileContinue:$('profile-continue-btn'), multiplayer:$('multiplayer-btn'), start:$('start-btn'), load:$('load-btn'), save:$('save-btn'), skipStory:$('skip-btn'), restart:$('restart-btn'), marketStart:$('marketplace-btn-start'), marketEnd:$('marketplace-btn-end'), closeMarket:$('close-marketplace-btn'), saveQuit:$('save-quit-btn'), storeToggle:$('store-toggle-btn'), storeClose:$('close-store-btn') }
+    buttons: { attack:$('attack-btn'), dodge:$('dodge-btn'), ability:$('ability-btn'), abilityIcon:$('ability-icon'), dodgeCD:$('dodge-cooldown-overlay'), abilityCD:$('ability-cooldown-overlay'), profileContinue:$('profile-continue-btn'), multiplayer:$('multiplayer-btn'), start:$('start-btn'), load:$('load-btn'), save:$('save-btn'), skipStory:$('skip-btn'), restart:$('restart-btn'), marketStart:$('marketplace-btn-start'), marketEnd:$('marketplace-btn-end'), closeMarket:$('close-marketplace-btn'), saveQuit:$('save-quit-btn'), storeToggle:$('store-toggle-btn'), storeClose:$('close-store-btn') }
 };
 
 // ========== INIT ==========
@@ -164,10 +164,6 @@ function bindEvents() {
 
     // Nav
     els.buttons.start.addEventListener('click', () => { state.level = 1; showStoryScreen(); });
-    els.buttons.skip100.addEventListener('click', () => {
-        if (window.Premium && !Premium.isUnlocked()) { Premium.openModal('skip'); return; }
-        state.level = 100; showStoryScreen();
-    });
     els.buttons.load.addEventListener('click', loadGame);
     els.buttons.save.addEventListener('click', saveGame);
     els.buttons.skipStory.addEventListener('click', () => { clearTimeout(typeWriterTimeout); showScreen('charSelect'); });

@@ -1199,17 +1199,15 @@ function renderMarketplace() {
 }
 
 function createMarketItemHTML(item, cat) {
-    const isPremiumUnlocked = window.Premium && Premium.isUnlocked();
-    const unlocked = state.unlockedItems.includes(item.id) || (item.premium && isPremiumUnlocked);
+    const unlocked = state.unlockedItems.includes(item.id);
     const equipped = (cat === 'skin' && state.equippedSkin === item.id) || (cat === 'aura' && state.equippedAura === item.id);
     const el = document.createElement('div');
-    el.className = `market-item ${equipped ? 'equipped' : ''} ${item.premium && !unlocked ? 'premium-locked' : ''}`;
+    el.className = `market-item ${equipped ? 'equipped' : ''}`;
     let btn;
     if (equipped) btn = `<button class="item-buy-btn equipped-btn" disabled>EQUIPPED</button>`;
     else if (unlocked) btn = `<button class="item-buy-btn equip-btn" onclick="equipMarketItem('${item.id}','${cat}')">EQUIP</button>`;
-    else if (item.premium) btn = `<button class="item-buy-btn premium-btn" onclick="window.Premium && Premium.openModal('market')">⭐ PREMIUM</button>`;
     else { const can = state.totalLifetimePoints >= item.cost; btn = `<button class="item-buy-btn" ${!can?'disabled style="opacity:0.5"':''} onclick="buyMarketItem('${item.id}',${item.cost})">${item.cost}💎 BUY</button>`; }
-    el.innerHTML = `<div class="item-visual">${item.emoji||'✨'}</div><div class="item-name">${item.name}${item.premium ? ' <span class=\"premium-badge\">★</span>' : ''}</div>${btn}`;
+    el.innerHTML = `<div class="item-visual">${item.emoji||'✨'}</div><div class="item-name">${item.name}</div>${btn}`;
     return el;
 }
 
