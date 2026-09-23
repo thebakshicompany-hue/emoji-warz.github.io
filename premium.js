@@ -23,7 +23,7 @@
 // yet instead of pretending to charge anyone.
 
 const Premium = {
-    PAYMENT_LINK_URL: 'https://rzp.io/l/REPLACE_WITH_YOUR_PAYMENT_LINK',
+    PAYMENT_LINK_URL: 'https://rzp.io/rzp/Vm8Sbph',
     VERIFY_ENDPOINT: 'https://vbnm1bbg-matheybackend.hf.space/verify-payment-link',
     KEY: 'emojiWarzPremium',
 

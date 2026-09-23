@@ -1,9 +1,26 @@
 // ========== render3d.js — Three.js 3D World Engine ==========
+//
+// Loaded as an ES module (see the <script type="importmap"> + type="module"
+// tag in index.html) so it can pull in real postprocessing addons instead of
+// the old vendored, deprecated `three.min.js` global build, which shipped
+// with no bloom/composer pipeline at all. Everything else in the game
+// (game.js, combat.js, multiplayer.js) is still classic non-module scripts,
+// so at the bottom of this file `ThreeEngine` is explicitly re-exposed as
+// `window.ThreeEngine` — that's the bridge that keeps them working unchanged.
+
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const ThreeEngine = {
     scene: null,
     camera: null,
     renderer: null,
+    composer: null,
+    bloomPass: null,
     container: null,
     entities: new Map(),
     ground: null,
@@ -11,16 +28,9 @@ const ThreeEngine = {
     debris: [],
     embers: null,
     ready: false,
-    _glowTextureCache: {},
     _baseFov: 50,
 
     init() {
-        if (typeof THREE === 'undefined') {
-            console.warn('Three.js not loaded, 3D disabled');
-            this.ready = false;
-            return;
-        }
-
         this.container = document.getElementById('three-container');
         if (!this.container) return;
 
@@ -40,19 +50,46 @@ const ThreeEngine = {
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.shadowMap.type = THREE.VSMShadowMap; // soft shadows — PCFSoftShadowMap was removed in modern three.js
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.05;
         this.container.appendChild(this.renderer.domElement);
 
+        this._buildEnvironment();
         this._buildLighting();
         this._buildGround();
         this._buildDebris();
         this._buildAtmosphere();
+        this._buildComposer();
 
         window.addEventListener('resize', () => this.onResize());
         this.ready = true;
         this._animate();
+    },
+
+    // Real-time bloom + tonemapped output, replacing the old hand-rolled
+    // additive-sprite "fake glow" hack — this is genuine HDR bloom off each
+    // material's emissive intensity, matching how a modern engine does it.
+    _buildComposer() {
+        const w = this.container.clientWidth, h = this.container.clientHeight;
+        this.composer = new EffectComposer(this.renderer);
+        this.composer.addPass(new RenderPass(this.scene, this.camera));
+
+        this.bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.9, 0.4, 0.22);
+        this.composer.addPass(this.bloomPass);
+
+        // Applies renderer.toneMapping + color space conversion at the end
+        // of the chain — required once you're rendering through a composer.
+        this.composer.addPass(new OutputPass());
+    },
+
+    // Image-based lighting so PBR (MeshStandardMaterial) surfaces get real
+    // ambient reflections instead of looking flat/matte. RoomEnvironment is
+    // a procedural generic interior — no external HDR file to download.
+    _buildEnvironment() {
+        const pmrem = new THREE.PMREMGenerator(this.renderer);
+        this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+        pmrem.dispose();
     },
 
     _buildLighting() {
@@ -91,38 +128,6 @@ const ThreeEngine = {
         this.scene.add(this.lights.ally);
     },
 
-    // Procedural radial-gradient sprite used as a lightweight glow/bloom stand-in
-    // (no postprocessing pipeline is bundled, so we fake it with additive sprites)
-    _getGlowTexture(hexColor) {
-        if (this._glowTextureCache[hexColor]) return this._glowTextureCache[hexColor];
-        const size = 128;
-        const canvas = document.createElement('canvas');
-        canvas.width = canvas.height = size;
-        const ctx = canvas.getContext('2d');
-        const c = new THREE.Color(hexColor);
-        const rgb = `${Math.floor(c.r*255)},${Math.floor(c.g*255)},${Math.floor(c.b*255)}`;
-        const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-        grad.addColorStop(0, `rgba(${rgb},0.85)`);
-        grad.addColorStop(0.4, `rgba(${rgb},0.35)`);
-        grad.addColorStop(1, `rgba(${rgb},0)`);
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, size, size);
-        const tex = new THREE.CanvasTexture(canvas);
-        this._glowTextureCache[hexColor] = tex;
-        return tex;
-    },
-
-    _makeGlowSprite(hexColor, scale) {
-        const mat = new THREE.SpriteMaterial({
-            map: this._getGlowTexture(hexColor),
-            transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
-        });
-        const sprite = new THREE.Sprite(mat);
-        sprite.scale.set(scale, scale, 1);
-        sprite.position.y = -1;
-        return sprite;
-    },
-
     // Slow-drifting embers for ambient depth/parallax behind the action
     _buildAtmosphere() {
         const count = 200;
@@ -159,7 +164,8 @@ const ThreeEngine = {
             color: 0x0a0a0a,
             roughness: 0.95,
             metalness: 0.05,
-            flatShading: true
+            flatShading: true,
+            envMapIntensity: 0.6
         });
         this.ground = new THREE.Mesh(geo, mat);
         this.ground.rotation.x = -Math.PI / 2;
@@ -182,7 +188,7 @@ const ThreeEngine = {
             new THREE.BoxGeometry(2, 1, 1.5)
         ];
         const mat = new THREE.MeshStandardMaterial({
-            color: 0x1a1a1a, roughness: 1.0, metalness: 0.0, flatShading: true
+            color: 0x1a1a1a, roughness: 1.0, metalness: 0.0, flatShading: true, envMapIntensity: 0.4
         });
 
         for (let i = 0; i < 80; i++) {
@@ -207,6 +213,8 @@ const ThreeEngine = {
         this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(w, h);
+        this.composer.setSize(w, h);
+        this.bloomPass.resolution.set(w, h);
     },
 
     // ========== ENTITY MANAGEMENT ==========
@@ -236,6 +244,18 @@ const ThreeEngine = {
         }
     },
 
+    // How brightly each entity type's emissive channel burns — this is what
+    // the bloom pass actually reacts to, so bosses genuinely glow hottest.
+    _getEmissiveIntensity(type) {
+        switch (type) {
+            case 'boss': return 1.6;
+            case 'elite': return 1.1;
+            case 'hero': case 'ally': case 'rival': return 0.9;
+            case 'powerup': return 1.3;
+            default: return 0.5;
+        }
+    },
+
     spawn(id, type) {
         if (!this.ready) return null;
         // Remove old if exists
@@ -243,23 +263,23 @@ const ThreeEngine = {
 
         const color = this._getEntityColor(type);
         const geo = this._getEntityGeo(type);
+        const isHeroLike = type === 'hero' || type === 'ally' || type === 'rival' || type === 'boss';
 
-        const mat = new THREE.MeshStandardMaterial({
-            color: color,
-            emissive: new THREE.Color(color).multiplyScalar(0.3),
-            roughness: 0.3,
-            metalness: 0.7,
-            flatShading: true
-        });
+        // Heroes/bosses get MeshPhysicalMaterial (clearcoat) for a shinier,
+        // more premium look; everything else stays on the cheaper standard
+        // PBR material since there are many more of them on screen at once.
+        const matParams = {
+            color, emissive: new THREE.Color(color), emissiveIntensity: this._getEmissiveIntensity(type),
+            roughness: 0.3, metalness: 0.7, flatShading: true, envMapIntensity: 1.3
+        };
+        const mat = isHeroLike
+            ? new THREE.MeshPhysicalMaterial({ ...matParams, clearcoat: 0.6, clearcoatRoughness: 0.25 })
+            : new THREE.MeshStandardMaterial(matParams);
 
         const mesh = new THREE.Mesh(geo, mat);
         mesh.castShadow = true;
         mesh.position.y = type === 'hero' ? 6 : 4;
         mesh.userData = { type, baseY: mesh.position.y, spawnTime: performance.now() };
-
-        // Soft additive glow behind the mesh (stand-in for a bloom pass)
-        const glowScale = type === 'boss' ? 26 : (type === 'hero' || type === 'ally' || type === 'rival') ? 14 : 10;
-        mesh.add(this._makeGlowSprite(color, glowScale));
 
         this.scene.add(mesh);
         this.entities.set(id, mesh);
@@ -441,6 +461,10 @@ const ThreeEngine = {
             this.embers.rotation.y += 0.0003;
         }
 
-        this.renderer.render(this.scene, this.camera);
+        this.composer.render();
     }
 };
+
+// Bridge for the rest of the game, which loads as classic (non-module)
+// scripts and expects `ThreeEngine` as a global — see the header comment.
+window.ThreeEngine = ThreeEngine;

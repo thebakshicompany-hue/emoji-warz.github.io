@@ -317,11 +317,28 @@
         
         <div id="save-toast" class="save-toast hidden">Game Saved! 💾</div>
     </div>
-    <script src="three.min.js"></script>
+    <!-- No-op fallback so the game still runs in 2D if the Three.js module
+         below fails to load (offline, CDN blocked, etc.) instead of every
+         ThreeEngine.xxx() call throughout the game throwing. The real
+         module overwrites window.ThreeEngine with the full implementation
+         once it loads successfully. -->
+    <script>
+    window.ThreeEngine = { ready: false, init(){}, spawn(){return null;}, updateEntity(){}, removeEntity(){}, burstAt(){}, flashDamage(){}, updateCamera(){}, setAllyGlow(){}, onResize(){} };
+    </script>
+    <!-- Real, current Three.js via ES modules — the old vendored three.min.js
+         was a deprecated legacy build with no postprocessing pipeline at all. -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/"
+        }
+    }
+    </script>
     <script src="lucide.min.js"></script>
     <script src="anime.min.js"></script>
     <script src="physics.js"></script>
-    <script src="render3d.js"></script>
+    <script type="module" src="render3d.js"></script>
     <script src="cinematic.js"></script>
     <script src="game.js"></script>
     <script src="combat.js"></script>
