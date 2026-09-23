@@ -9,7 +9,10 @@ const ThreeEngine = {
     ground: null,
     lights: {},
     debris: [],
+    embers: null,
     ready: false,
+    _glowTextureCache: {},
+    _baseFov: 50,
 
     init() {
         if (typeof THREE === 'undefined') {
@@ -24,11 +27,11 @@ const ThreeEngine = {
         // Scene
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x030303);
-        this.scene.fog = new THREE.FogExp2(0x030303, 0.008);
+        this.scene.fog = new THREE.FogExp2(0x050304, 0.007);
 
         // Camera — isometric-style top-down
         const aspect = this.container.clientWidth / this.container.clientHeight;
-        this.camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 500);
+        this.camera = new THREE.PerspectiveCamera(this._baseFov, aspect, 0.1, 500);
         this.camera.position.set(0, 120, 80);
         this.camera.lookAt(0, 0, 0);
 
@@ -39,12 +42,13 @@ const ThreeEngine = {
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 0.9;
+        this.renderer.toneMappingExposure = 1.05;
         this.container.appendChild(this.renderer.domElement);
 
         this._buildLighting();
         this._buildGround();
         this._buildDebris();
+        this._buildAtmosphere();
 
         window.addEventListener('resize', () => this.onResize());
         this.ready = true;
@@ -52,8 +56,12 @@ const ThreeEngine = {
     },
 
     _buildLighting() {
-        // Dim ambient
-        this.lights.ambient = new THREE.AmbientLight(0x222222, 0.6);
+        // Sky/ground gradient ambient — richer than a flat ambient light
+        this.lights.hemi = new THREE.HemisphereLight(0x445577, 0x1a0505, 0.7);
+        this.scene.add(this.lights.hemi);
+
+        // Dim ambient fill
+        this.lights.ambient = new THREE.AmbientLight(0x222222, 0.35);
         this.scene.add(this.lights.ambient);
 
         // Main directional (moonlight)
@@ -76,6 +84,65 @@ const ThreeEngine = {
         this.lights.rim = new THREE.DirectionalLight(0x330011, 0.4);
         this.lights.rim.position.set(-40, 20, -40);
         this.scene.add(this.lights.rim);
+
+        // Cool teammate-glow accent, used more once co-op is active
+        this.lights.ally = new THREE.PointLight(0x00ccff, 0, 160);
+        this.lights.ally.position.set(20, 5, 0);
+        this.scene.add(this.lights.ally);
+    },
+
+    // Procedural radial-gradient sprite used as a lightweight glow/bloom stand-in
+    // (no postprocessing pipeline is bundled, so we fake it with additive sprites)
+    _getGlowTexture(hexColor) {
+        if (this._glowTextureCache[hexColor]) return this._glowTextureCache[hexColor];
+        const size = 128;
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const c = new THREE.Color(hexColor);
+        const rgb = `${Math.floor(c.r*255)},${Math.floor(c.g*255)},${Math.floor(c.b*255)}`;
+        const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+        grad.addColorStop(0, `rgba(${rgb},0.85)`);
+        grad.addColorStop(0.4, `rgba(${rgb},0.35)`);
+        grad.addColorStop(1, `rgba(${rgb},0)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+        const tex = new THREE.CanvasTexture(canvas);
+        this._glowTextureCache[hexColor] = tex;
+        return tex;
+    },
+
+    _makeGlowSprite(hexColor, scale) {
+        const mat = new THREE.SpriteMaterial({
+            map: this._getGlowTexture(hexColor),
+            transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+        });
+        const sprite = new THREE.Sprite(mat);
+        sprite.scale.set(scale, scale, 1);
+        sprite.position.y = -1;
+        return sprite;
+    },
+
+    // Slow-drifting embers for ambient depth/parallax behind the action
+    _buildAtmosphere() {
+        const count = 200;
+        const geo = new THREE.BufferGeometry();
+        const positions = new Float32Array(count * 3);
+        const speeds = new Float32Array(count);
+        for (let i = 0; i < count; i++) {
+            positions[i*3] = (Math.random() - 0.5) * 400;
+            positions[i*3+1] = Math.random() * 60;
+            positions[i*3+2] = (Math.random() - 0.5) * 400;
+            speeds[i] = 0.05 + Math.random() * 0.15;
+        }
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const mat = new THREE.PointsMaterial({
+            color: 0xff5500, size: 0.6, transparent: true, opacity: 0.55,
+            blending: THREE.AdditiveBlending, depthWrite: false
+        });
+        this.embers = new THREE.Points(geo, mat);
+        this.embers.userData.speeds = speeds;
+        this.scene.add(this.embers);
     },
 
     _buildGround() {
@@ -147,6 +214,8 @@ const ThreeEngine = {
     _getEntityColor(type) {
         switch (type) {
             case 'hero': return 0x00ccff;
+            case 'ally': return 0x00ffaa;   // co-op teammate
+            case 'rival': return 0xffaa00;  // PvP opponent
             case 'enemy': return 0xcc0000;
             case 'boss': return 0xff4400;
             case 'elite': return 0xaa00ff;
@@ -158,6 +227,8 @@ const ThreeEngine = {
     _getEntityGeo(type) {
         switch (type) {
             case 'hero': return new THREE.DodecahedronGeometry(5, 1);
+            case 'ally': return new THREE.DodecahedronGeometry(4.5, 1);
+            case 'rival': return new THREE.DodecahedronGeometry(4.5, 1);
             case 'boss': return new THREE.IcosahedronGeometry(8, 1);
             case 'elite': return new THREE.OctahedronGeometry(5, 1);
             case 'powerup': return new THREE.OctahedronGeometry(3, 0);
@@ -185,6 +256,11 @@ const ThreeEngine = {
         mesh.castShadow = true;
         mesh.position.y = type === 'hero' ? 6 : 4;
         mesh.userData = { type, baseY: mesh.position.y, spawnTime: performance.now() };
+
+        // Soft additive glow behind the mesh (stand-in for a bloom pass)
+        const glowScale = type === 'boss' ? 26 : (type === 'hero' || type === 'ally' || type === 'rival') ? 14 : 10;
+        mesh.add(this._makeGlowSprite(color, glowScale));
+
         this.scene.add(mesh);
         this.entities.set(id, mesh);
 
@@ -320,7 +396,7 @@ const ThreeEngine = {
         }
     },
 
-    updateCamera(heroX, heroY) {
+    updateCamera(heroX, heroY, rageMode) {
         if (!this.ready) return;
         const targetX = (heroX - window.innerWidth / 2) * 0.3;
         const targetZ = (heroY - window.innerHeight / 2) * 0.3;
@@ -333,11 +409,38 @@ const ThreeEngine = {
         // Move red light with hero
         this.lights.red.position.x = targetX;
         this.lights.red.position.z = targetZ;
+
+        // Subtle FOV pulse for tension when the hero is in rage mode
+        const targetFov = rageMode ? this._baseFov + 4 : this._baseFov;
+        if (Math.abs(this.camera.fov - targetFov) > 0.05) {
+            this.camera.fov += (targetFov - this.camera.fov) * 0.08;
+            this.camera.updateProjectionMatrix();
+        }
+    },
+
+    // Fade the teammate accent light in/out based on whether co-op is active
+    setAllyGlow(active) {
+        if (!this.ready || !this.lights.ally) return;
+        this.lights.ally.intensity = active ? 1.2 : 0;
     },
 
     _animate() {
         if (!this.ready) return;
         requestAnimationFrame(() => this._animate());
+
+        // Drift embers upward and recycle them once they rise too high
+        if (this.embers) {
+            const pos = this.embers.geometry.attributes.position;
+            const speeds = this.embers.userData.speeds;
+            for (let i = 0; i < speeds.length; i++) {
+                let y = pos.getY(i) + speeds[i];
+                if (y > 60) y = 0;
+                pos.setY(i, y);
+            }
+            pos.needsUpdate = true;
+            this.embers.rotation.y += 0.0003;
+        }
+
         this.renderer.render(this.scene, this.camera);
     }
 };

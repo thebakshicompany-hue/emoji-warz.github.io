@@ -418,60 +418,120 @@ function updateEnemyPos(e) {
     e.element.style.left = '0'; e.element.style.top = '0';
 }
 
+// In co-op, enemies are shared: they should chase/attack whichever player
+// (self or a synced teammate) is closest, not just the local hero.
+function getNearestTarget(e) {
+    let best = { x: state.heroPosition.x, y: state.heroPosition.y, isSelf: true, playerId: null };
+    let bestDist = (state.heroPosition.x - e.x) ** 2 + (state.heroPosition.y - e.y) ** 2;
+    const mp = window.Multiplayer;
+    if (mp && mp.active && mp.isHost) {
+        mp.forEachRemotePlayer((id, p) => {
+            if (p.hp <= 0) return;
+            const d = (p.x - e.x) ** 2 + (p.y - e.y) ** 2;
+            if (d < bestDist) { bestDist = d; best = { x: p.x, y: p.y, isSelf: false, playerId: id }; }
+        });
+    }
+    return best;
+}
+
 function updateEnemies(time, dt) {
-    for (let i = state.enemies.length - 1; i >= 0; i--) {
-        const e = state.enemies[i];
-        if (e.hp <= 0) continue;
+    // Guests don't run enemy AI — the host is authoritative and streams
+    // enemy positions/HP via Multiplayer's host_sync snapshots instead.
+    const isMPGuest = window.Multiplayer && Multiplayer.active && !Multiplayer.isHost;
 
-        const dx = state.heroPosition.x - e.x, dy = state.heroPosition.y - e.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        const atkRange = e.isFinalBoss ? 100 : (e.isBoss ? 80 : 40);
+    if (!isMPGuest) {
+        for (let i = state.enemies.length - 1; i >= 0; i--) {
+            const e = state.enemies[i];
+            if (e.hp <= 0) continue;
 
-        if (dist > atkRange) {
-            const mv = e.speed * (dt/16);
-            e.x += (dx/dist) * mv; e.y += (dy/dist) * mv;
-            updateEnemyPos(e);
-            ThreeEngine.updateEntity('enemy_' + e.id, e.x, e.y);
-        } else {
-            if (time - e.lastAttackTime > e.attackDelay) {
-                // Telegraph danger zone before attacking
-                if (!e._telegraphed) {
-                    e._telegraphed = true;
-                    const tz = document.createElement('div');
-                    tz.className = 'danger-zone';
-                    const size = atkRange * 2.5;
-                    tz.style.width = `${size}px`; tz.style.height = `${size}px`;
-                    tz.style.left = `${e.x}px`; tz.style.top = `${e.y}px`;
-                    els.world.appendChild(tz);
-                    setTimeout(() => { if (tz.parentNode) tz.remove(); }, 500);
-                    ParticleEngine.spawnTelegraph(e.x, e.y, size/2, 400, 'rgba(255,0,0,0.3)');
-                }
+            const tgt = getNearestTarget(e);
+            const dx = tgt.x - e.x, dy = tgt.y - e.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const atkRange = e.isFinalBoss ? 100 : (e.isBoss ? 80 : 40);
 
-                if (!state.isDodging) {
-                    const shieldBuff = state.activeBuffs.findIndex(b => b.type === 'shield_hit');
-                    if (shieldBuff >= 0) {
-                        state.activeBuffs.splice(shieldBuff, 1);
-                        updateBuffsUI();
-                        createFloatingText(state.heroPosition.x, state.heroPosition.y - 20, '🛡️ BLOCKED!', 'heal');
-                    } else {
-                        damagePlayer(e.damage);
+            if (dist > atkRange) {
+                const mv = e.speed * (dt/16);
+                e.x += (dx/dist) * mv; e.y += (dy/dist) * mv;
+                updateEnemyPos(e);
+                ThreeEngine.updateEntity('enemy_' + e.id, e.x, e.y);
+            } else {
+                if (time - e.lastAttackTime > e.attackDelay) {
+                    // Telegraph danger zone before attacking
+                    if (!e._telegraphed) {
+                        e._telegraphed = true;
+                        const tz = document.createElement('div');
+                        tz.className = 'danger-zone';
+                        const size = atkRange * 2.5;
+                        tz.style.width = `${size}px`; tz.style.height = `${size}px`;
+                        tz.style.left = `${e.x}px`; tz.style.top = `${e.y}px`;
+                        els.world.appendChild(tz);
+                        setTimeout(() => { if (tz.parentNode) tz.remove(); }, 500);
+                        ParticleEngine.spawnTelegraph(e.x, e.y, size/2, 400, 'rgba(255,0,0,0.3)');
                     }
+
+                    if (tgt.isSelf) {
+                        if (!state.isDodging) {
+                            const shieldBuff = state.activeBuffs.findIndex(b => b.type === 'shield_hit');
+                            if (shieldBuff >= 0) {
+                                state.activeBuffs.splice(shieldBuff, 1);
+                                updateBuffsUI();
+                                createFloatingText(state.heroPosition.x, state.heroPosition.y - 20, '🛡️ BLOCKED!', 'heal');
+                            } else {
+                                damagePlayer(e.damage);
+                            }
+                        }
+                    } else if (window.Multiplayer) {
+                        Multiplayer.damageRemotePlayer(tgt.playerId, e.damage);
+                    }
+                    e.lastAttackTime = time;
+                    e._telegraphed = false;
+                    e.element.classList.add('attack-lunge');
+                    setTimeout(() => { if (e.element) e.element.classList.remove('attack-lunge'); updateEnemyPos(e); }, 120);
                 }
-                e.lastAttackTime = time;
-                e._telegraphed = false;
-                e.element.classList.add('attack-lunge');
-                setTimeout(() => { if (e.element) e.element.classList.remove('attack-lunge'); updateEnemyPos(e); }, 120);
             }
         }
     }
 
-    // Auto attack tick
+    // Auto attack tick (both host and guests attack whatever enemies they can see)
     autoAttackTick(time);
 }
 
 // ========== DAMAGE SYSTEM ==========
-function damageEnemy(enemy, amount, isCrit = false) {
+// Credits a kill's points to whoever actually landed it. In co-op, the host
+// resolves all enemy HP, so a teammate's finishing blow needs to be relayed
+// back to them instead of being added to the host's own point total.
+function awardPoints(pts, creditedId) {
+    const mp = window.Multiplayer;
+    if (mp && mp.active && mp.isHost && creditedId && creditedId !== mp.myId) {
+        mp.rewardPlayer(creditedId, pts);
+        return;
+    }
+    state.points += pts;
+    state.totalLifetimePoints += pts;
+}
+
+function damageEnemy(enemy, amount, isCrit = false, attackerId = null) {
     if (enemy.hp <= 0) return;
+
+    // Co-op guests don't own enemy HP — the host is authoritative. Report the
+    // hit and just play local feedback FX; the real HP change arrives on the
+    // next host_sync snapshot.
+    const mp = window.Multiplayer;
+    if (mp && mp.active && !mp.isHost) {
+        mp.reportAttack(enemy.id, amount, isCrit);
+        SFX.hit();
+        createFloatingText(enemy.x, enemy.y - 15, amount, isCrit ? 'crit' : 'damage');
+        const dx = enemy.x - state.heroPosition.x, dy = enemy.y - state.heroPosition.y;
+        if (isCrit) ParticleEngine.critFlash(enemy.x, enemy.y); else ParticleEngine.bloodBurst(enemy.x, enemy.y, dx, dy);
+        enemy.element.classList.remove('hit', 'stagger');
+        void enemy.element.offsetWidth;
+        enemy.element.classList.add(isCrit ? 'stagger' : 'hit');
+        setTimeout(() => enemy.element && enemy.element.classList.remove('hit', 'stagger'), 250);
+        return;
+    }
+    // Host: track who lands the killing blow so co-op credit goes to the right player
+    if (mp && mp.active && mp.isHost) attackerId = attackerId || mp.myId;
+    if (attackerId) enemy.lastAttackerId = attackerId;
 
     // Rage mode: 3x damage
     if (state.rageMode) amount = Math.floor(amount * 3);
@@ -546,8 +606,7 @@ function killEnemy(enemy) {
     if (enemy.isFinalBoss) pts *= 100;
     if (enemy.isElite) pts *= 3;
 
-    state.points += pts;
-    state.totalLifetimePoints += pts;
+    awardPoints(pts, enemy.lastAttackerId);
     state.enemiesDefeatedInLevel++;
     SFX.coin();
     createFloatingText(enemy.x, enemy.y, `+${pts}💎`, 'points');
@@ -641,10 +700,6 @@ function healPlayer(amount) {
 }
 
 function levelUp() {
-    if (state.isGuest && state.level >= 100) {
-        guestLimitReached();
-        return;
-    }
     state.level++;
     state.enemiesDefeatedInLevel = 0;
     state.enemiesRequiredForNextLevel = Math.min(100, 5 + state.level * 2);
@@ -1104,19 +1159,6 @@ function gameOver() {
     }, 800);
 }
 
-function guestLimitReached() {
-    state.isRunning = false; SFX.gameOver();
-    setTimeout(() => {
-        showScreen('end');
-        const t = $('end-title');
-        t.innerText = "GUEST LIMIT"; t.classList.add('game-over-text');
-        t.style.color = '#00f0ff'; t.style.textShadow = '0 0 20px #00f0ff'; t.style.webkitTextFillColor = '#00f0ff';
-        $('death-skull').style.display = 'none';
-        $('end-subtitle').innerText = "You reached Level 100!\nLogin to play up to Level 1000!";
-        els.screens.end.classList.remove('blood-tint');
-    }, 500);
-}
-
 function winGame() {
     state.isRunning = false;
     // Victory conversation
@@ -1157,25 +1199,27 @@ function renderMarketplace() {
 }
 
 function createMarketItemHTML(item, cat) {
-    const unlocked = state.unlockedItems.includes(item.id);
+    const isPremiumUnlocked = window.Premium && Premium.isUnlocked();
+    const unlocked = state.unlockedItems.includes(item.id) || (item.premium && isPremiumUnlocked);
     const equipped = (cat === 'skin' && state.equippedSkin === item.id) || (cat === 'aura' && state.equippedAura === item.id);
     const el = document.createElement('div');
-    el.className = `market-item ${equipped ? 'equipped' : ''}`;
+    el.className = `market-item ${equipped ? 'equipped' : ''} ${item.premium && !unlocked ? 'premium-locked' : ''}`;
     let btn;
     if (equipped) btn = `<button class="item-buy-btn equipped-btn" disabled>EQUIPPED</button>`;
     else if (unlocked) btn = `<button class="item-buy-btn equip-btn" onclick="equipMarketItem('${item.id}','${cat}')">EQUIP</button>`;
+    else if (item.premium) btn = `<button class="item-buy-btn premium-btn" onclick="window.Premium && Premium.openModal('market')">⭐ PREMIUM</button>`;
     else { const can = state.totalLifetimePoints >= item.cost; btn = `<button class="item-buy-btn" ${!can?'disabled style="opacity:0.5"':''} onclick="buyMarketItem('${item.id}',${item.cost})">${item.cost}💎 BUY</button>`; }
-    el.innerHTML = `<div class="item-visual">${item.emoji||'✨'}</div><div class="item-name">${item.name}</div>${btn}`;
+    el.innerHTML = `<div class="item-visual">${item.emoji||'✨'}</div><div class="item-name">${item.name}${item.premium ? ' <span class=\"premium-badge\">★</span>' : ''}</div>${btn}`;
     return el;
 }
 
-window.buyMarketItem = (id, cost) => { 
-    if (state.totalLifetimePoints >= cost) { 
-        state.totalLifetimePoints -= cost; 
+window.buyMarketItem = (id, cost) => {
+    if (state.totalLifetimePoints >= cost) {
+        state.totalLifetimePoints -= cost;
         state.points = Math.max(0, state.points - Math.min(state.points, cost));
-        state.unlockedItems.push(id); 
-        saveGame(); renderMarketplace(); SFX.upgrade(); 
-    } 
+        state.unlockedItems.push(id);
+        saveGame(); renderMarketplace(); SFX.upgrade();
+    }
 };
 window.equipMarketItem = (id, cat) => { if (cat === 'skin') state.equippedSkin = id; else state.equippedAura = id; saveGame(); renderMarketplace(); SFX.shoot(); };
 

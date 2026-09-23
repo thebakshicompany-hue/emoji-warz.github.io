@@ -21,12 +21,14 @@ const MARKET_ITEMS = {
         { id:'skin_base', name:'Default', type:'skin', cost:0, emoji:'⚔️' },
         { id:'skin_ninja', name:'Wraith', type:'skin', cost:500, emoji:'👻' },
         { id:'skin_demon', name:'Hellspawn', type:'skin', cost:1500, emoji:'💀' },
-        { id:'skin_mech', name:'Dreadnought', type:'skin', cost:3000, emoji:'🤖' }
+        { id:'skin_mech', name:'Dreadnought', type:'skin', cost:3000, emoji:'🤖' },
+        { id:'skin_premium_gold', name:'Golden Champion', type:'skin', cost:0, premium:true, emoji:'🏆' }
     ],
     auras: [
         { id:'aura_none', name:'No Aura', type:'aura', cost:0, class:'' },
         { id:'aura_fire', name:'Flame Aura', type:'aura', cost:1000, class:'aura-fire' },
-        { id:'aura_void', name:'Void Aura', type:'aura', cost:2500, class:'aura-void' }
+        { id:'aura_void', name:'Void Aura', type:'aura', cost:2500, class:'aura-void' },
+        { id:'aura_premium', name:'Celestial Aura', type:'aura', cost:0, premium:true, class:'aura-premium' }
     ]
 };
 const STORY_LINES = [
@@ -39,7 +41,7 @@ const STORY_LINES = [
 
 // ========== STATE ==========
 let state = {
-    isRunning: false, level: 1, isGuest: false, points: 0, enemiesDefeatedInLevel: 0, enemiesRequiredForNextLevel: 5,
+    isRunning: false, level: 1, points: 0, enemiesDefeatedInLevel: 0, enemiesRequiredForNextLevel: 5,
     lastTick: 0, lastAttackTime: 0, totalLifetimePoints: 0, unlockedItems: ['skin_base','aura_none'],
     equippedSkin: 'skin_base', equippedAura: 'aura_none',
     player: { ...HERO_CLASSES['balanced'] }, selectedClass: 'balanced',
@@ -66,8 +68,19 @@ let state = {
     lastTrailTime: 0
 };
 
-// ========== POCKETBASE ==========
-const pb = new PocketBase('https://pocketbase.bdpro.in');
+// ========== PLAYER PROFILE (local, no account needed) ==========
+const Profile = {
+    KEY: 'emojiWarzPlayerName',
+    name: null,
+    load() { this.name = localStorage.getItem(this.KEY) || null; return this.name; },
+    save(name) { this.name = name; localStorage.setItem(this.KEY, name); },
+    // Stable per-device id used to tell players apart in multiplayer
+    getClientId() {
+        let id = localStorage.getItem('emojiWarzClientId');
+        if (!id) { id = 'p_' + Math.random().toString(36).slice(2, 10); localStorage.setItem('emojiWarzClientId', id); }
+        return id;
+    }
+};
 
 // ========== SOUND ENGINE ==========
 const SFX = {
@@ -103,8 +116,8 @@ const SFX = {
 // ========== DOM ==========
 const $ = id => document.getElementById(id);
 const els = {
-    screens: { login:$('login-screen'), register:$('register-screen'), start:$('start-screen'), story:$('story-screen'), charSelect:$('char-select-screen'), game:$('game-ui'), end:$('end-screen') },
-    auth: { email:$('login-email'), pass:$('login-pass'), error:$('login-error'), regEmail:$('reg-email'), regPass:$('reg-pass'), regPassConfirm:$('reg-pass-confirm'), regError:$('reg-error'), regSuccess:$('reg-success') },
+    screens: { profile:$('profile-screen'), lobby:$('lobby-screen'), start:$('start-screen'), story:$('story-screen'), charSelect:$('char-select-screen'), game:$('game-ui'), end:$('end-screen') },
+    profile: { input:$('player-name'), error:$('profile-error') },
     hud: { healthBar:$('hero-hp-fill'), healthText:$('health-text'), levelDisplay:$('level-display'), levelProgress:$('level-progress'), pointsDisplay:$('points-display'), rescuedContainer:$('rescued-container') },
     world: $('game-world'), textLayer: $('damage-text-layer'), warning: $('boss-warning'), saveToast: $('save-toast'),
     storyText: $('story-text'),
@@ -114,7 +127,7 @@ const els = {
     buffs: $('active-buffs'),
     wave: { timer:$('wave-timer'), countdown:$('wave-countdown') },
     joystick: { zone:$('joystick-zone'), base:$('joystick-base'), thumb:$('joystick-thumb') },
-    buttons: { guest:$('guest-btn'), skip100:$('skip-100-btn'), attack:$('attack-btn'), dodge:$('dodge-btn'), ability:$('ability-btn'), abilityIcon:$('ability-icon'), dodgeCD:$('dodge-cooldown-overlay'), abilityCD:$('ability-cooldown-overlay'), login:$('login-btn'), register:$('register-btn'), goToRegister:$('go-to-register'), goToLogin:$('go-to-login'), start:$('start-btn'), load:$('load-btn'), save:$('save-btn'), skipStory:$('skip-btn'), restart:$('restart-btn'), marketStart:$('marketplace-btn-start'), marketEnd:$('marketplace-btn-end'), closeMarket:$('close-marketplace-btn'), saveQuit:$('save-quit-btn'), storeToggle:$('store-toggle-btn'), storeClose:$('close-store-btn') }
+    buttons: { skip100:$('skip-100-btn'), attack:$('attack-btn'), dodge:$('dodge-btn'), ability:$('ability-btn'), abilityIcon:$('ability-icon'), dodgeCD:$('dodge-cooldown-overlay'), abilityCD:$('ability-cooldown-overlay'), profileContinue:$('profile-continue-btn'), multiplayer:$('multiplayer-btn'), start:$('start-btn'), load:$('load-btn'), save:$('save-btn'), skipStory:$('skip-btn'), restart:$('restart-btn'), marketStart:$('marketplace-btn-start'), marketEnd:$('marketplace-btn-end'), closeMarket:$('close-marketplace-btn'), saveQuit:$('save-quit-btn'), storeToggle:$('store-toggle-btn'), storeClose:$('close-store-btn') }
 };
 
 // ========== INIT ==========
@@ -122,27 +135,34 @@ function init() {
     bindEvents();
     loadGlobalProgress();
     renderMarketplace();
-    if (pb.authStore.isValid) showScreen('start');
+    // No account system — skip straight past the name screen if we already have one saved
+    if (Profile.load()) showScreen('start');
 }
 
 let typeWriterTimeout;
 
 function bindEvents() {
-    // Auth
-    els.buttons.login.addEventListener('click', handleLogin);
-    els.buttons.register.addEventListener('click', handleRegistration);
-    els.buttons.guest.addEventListener('click', () => { state.isGuest = true; showScreen('start'); });
-    els.buttons.goToRegister.addEventListener('click', () => { showScreen('register'); clearAuthErrors(); });
-    els.buttons.goToLogin.addEventListener('click', () => { showScreen('login'); clearAuthErrors(); });
+    // Player name entry (replaces login — no account/auth required)
+    els.buttons.profileContinue.addEventListener('click', handleProfileContinue);
+    els.profile.input.addEventListener('keydown', e => { if (e.key === 'Enter') handleProfileContinue(); });
+
+    // Multiplayer entry point (lobby logic lives in multiplayer.js)
+    els.buttons.multiplayer.addEventListener('click', () => {
+        showScreen('lobby');
+        if (window.Multiplayer) Multiplayer.enterLobby();
+    });
 
     // Nav
     els.buttons.start.addEventListener('click', () => { state.level = 1; showStoryScreen(); });
-    els.buttons.skip100.addEventListener('click', () => { state.level = 100; showStoryScreen(); });
+    els.buttons.skip100.addEventListener('click', () => {
+        if (window.Premium && !Premium.isUnlocked()) { Premium.openModal('skip'); return; }
+        state.level = 100; showStoryScreen();
+    });
     els.buttons.load.addEventListener('click', loadGame);
     els.buttons.save.addEventListener('click', saveGame);
     els.buttons.skipStory.addEventListener('click', () => { clearTimeout(typeWriterTimeout); showScreen('charSelect'); });
-    els.buttons.restart.addEventListener('click', resetGame);
-    els.buttons.saveQuit.addEventListener('click', () => { saveGame(); state.isRunning = false; showScreen('start'); });
+    els.buttons.restart.addEventListener('click', () => { if (window.Multiplayer) Multiplayer.leaveRoom(); resetGame(); });
+    els.buttons.saveQuit.addEventListener('click', () => { if (window.Multiplayer) Multiplayer.leaveRoom(); saveGame(); state.isRunning = false; showScreen('start'); });
 
     // Marketplace
     els.buttons.marketStart.addEventListener('click', showMarketplace);
@@ -265,39 +285,17 @@ function bindEvents() {
     }, { passive: true });
 }
 
-// ========== AUTH ==========
-function clearAuthErrors() { els.auth.error.classList.add('hidden'); els.auth.regError.classList.add('hidden'); els.auth.regSuccess.classList.add('hidden'); }
+// True while we're a non-host participant in a live co-op match — used to
+// skip the local wave/enemy-AI simulation, which the host drives instead.
+function isMPGuest() { return !!(window.Multiplayer && Multiplayer.active && !Multiplayer.isHost); }
 
-async function handleLogin() {
-    const email = els.auth.email.value, pass = els.auth.pass.value;
-    if (!email || !pass) return;
-    els.buttons.login.innerText = "LOGGING IN..."; els.buttons.login.disabled = true;
-    try {
-        await pb.collection('users').authWithPassword(email, pass);
-        if (pb.authStore.isValid) showScreen('start');
-    } catch(e) {
-        els.auth.error.innerText = "Invalid credentials"; els.auth.error.classList.remove('hidden');
-        els.buttons.login.innerText = "LOGIN"; els.buttons.login.disabled = false;
-    }
-}
-
-async function handleRegistration() {
-    const email = els.auth.regEmail.value, pass = els.auth.regPass.value, pc = els.auth.regPassConfirm.value;
-    clearAuthErrors();
-    if (!email || !pass || !pc) { els.auth.regError.innerText = "Please fill all fields"; els.auth.regError.classList.remove('hidden'); return; }
-    if (pass !== pc) { els.auth.regError.innerText = "Passwords do not match"; els.auth.regError.classList.remove('hidden'); return; }
-    if (pass.length < 8) { els.auth.regError.innerText = "Password must be at least 8 characters"; els.auth.regError.classList.remove('hidden'); return; }
-    els.buttons.register.innerText = "CREATING..."; els.buttons.register.disabled = true;
-    try {
-        await pb.collection('users').create({ email, password: pass, passwordConfirm: pc });
-        els.auth.regSuccess.classList.remove('hidden');
-        await pb.collection('users').authWithPassword(email, pass);
-        if (pb.authStore.isValid) setTimeout(() => showScreen('start'), 1000);
-    } catch(e) {
-        els.auth.regError.innerText = e.response?.message || "Failed to create account.";
-        els.auth.regError.classList.remove('hidden');
-        els.buttons.register.innerText = "SIGN UP"; els.buttons.register.disabled = false;
-    }
+// ========== PLAYER NAME ENTRY (no auth required) ==========
+function handleProfileContinue() {
+    const name = els.profile.input.value.trim().slice(0, 16);
+    if (!name) { els.profile.error.classList.remove('hidden'); return; }
+    els.profile.error.classList.add('hidden');
+    Profile.save(name);
+    showScreen('start');
 }
 
 // ========== SCREEN MANAGEMENT ==========
@@ -466,20 +464,23 @@ function gameLoop(t) {
         updateHealthUI();
     }
 
-    // Wave spawn
-    if (state.enemies.length === 0 && !state.betweenWaves) {
-        state.betweenWaves = true;
-        state.waveTimerMax = Math.max(2000, 5000 - state.level * 30);
-        state.waveTimer = state.waveTimerMax;
-        els.wave.timer.classList.remove('hidden');
-    }
-    if (state.betweenWaves) {
-        state.waveTimer -= dt;
-        els.wave.countdown.innerText = Math.max(0, Math.ceil(state.waveTimer / 1000));
-        if (state.waveTimer <= 0) {
-            state.betweenWaves = false;
-            els.wave.timer.classList.add('hidden');
-            spawnWave();
+    // Wave spawn (co-op guests skip this — the host decides waves and streams
+    // enemies/level/timer to everyone via Multiplayer's host_sync snapshots)
+    if (!isMPGuest()) {
+        if (state.enemies.length === 0 && !state.betweenWaves) {
+            state.betweenWaves = true;
+            state.waveTimerMax = Math.max(2000, 5000 - state.level * 30);
+            state.waveTimer = state.waveTimerMax;
+            els.wave.timer.classList.remove('hidden');
+        }
+        if (state.betweenWaves) {
+            state.waveTimer -= dt;
+            els.wave.countdown.innerText = Math.max(0, Math.ceil(state.waveTimer / 1000));
+            if (state.waveTimer <= 0) {
+                state.betweenWaves = false;
+                els.wave.timer.classList.add('hidden');
+                spawnWave();
+            }
         }
     }
 
@@ -493,7 +494,10 @@ function gameLoop(t) {
 
     // 3D Sync
     ThreeEngine.updateEntity('hero', state.heroPosition.x, state.heroPosition.y);
-    ThreeEngine.updateCamera(state.heroPosition.x, state.heroPosition.y);
+    ThreeEngine.updateCamera(state.heroPosition.x, state.heroPosition.y, state.rageMode);
+
+    // Multiplayer network sync
+    if (window.Multiplayer) Multiplayer.tick(t, dt);
 
     requestAnimationFrame(gameLoop);
 }

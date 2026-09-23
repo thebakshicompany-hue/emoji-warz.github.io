@@ -8,39 +8,48 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pocketbase/0.21.1/pocketbase.umd.js"></script>
+    <script src="https://unpkg.com/colyseus.js@^0.16.0/dist/colyseus.js"></script>
 </head>
 <body>
     <div id="game-container">
         <!-- 3D World (behind everything) -->
         <div id="three-container"></div>
-        
-        <!-- Login Screen -->
-        <div id="login-screen" class="screen active menu-overlay">
-            <div class="login-panel glass-panel">
-                <h1 class="logo temp-logo">WEBAPPZO</h1>
-                <p class="subtitle" style="margin-bottom: 20px;">Login to Play Emoji Warz</p>
-                <input type="email" id="login-email" class="neon-input" placeholder="Email Address">
-                <input type="password" id="login-pass" class="neon-input" placeholder="Password">
-                <p id="login-error" class="error-msg hidden">Invalid credentials</p>
-                <button id="login-btn" class="glow-btn small-btn mt-20" style="width: 100%;">LOGIN</button>
-                <button id="guest-btn" class="glow-btn small-btn mt-20" style="width: 100%; background: linear-gradient(45deg, #555, #888); border-color: #999;">PLAY AS GUEST (Up to Lv 100)</button>
-                <button id="go-to-register" class="link-btn mt-20">Need an account? Sign Up</button>
+
+        <!-- Profile Screen (name entry, no account needed) -->
+        <div id="profile-screen" class="screen active menu-overlay">
+            <div class="entry-panel glass-panel">
+                <h1 class="logo temp-logo">EMOJI WARZ</h1>
+                <p class="subtitle" style="margin-bottom: 20px;">Enter your warrior name</p>
+                <input type="text" id="player-name" class="neon-input" placeholder="Your Name" maxlength="16" autocomplete="off">
+                <p id="profile-error" class="error-msg hidden">Please enter a name</p>
+                <button id="profile-continue-btn" class="glow-btn small-btn mt-20" style="width: 100%;">CONTINUE</button>
             </div>
         </div>
 
-        <!-- Register Screen -->
-        <div id="register-screen" class="screen hidden menu-overlay">
-            <div class="login-panel glass-panel">
-                <h1 class="logo temp-logo">CREATE ACCOUNT</h1>
-                <p class="subtitle" style="margin-bottom: 20px;">Join the Emoji Warz</p>
-                <input type="email" id="reg-email" class="neon-input" placeholder="Email Address">
-                <input type="password" id="reg-pass" class="neon-input" placeholder="Password">
-                <input type="password" id="reg-pass-confirm" class="neon-input" placeholder="Confirm Password">
-                <p id="reg-error" class="error-msg hidden">Passwords do not match</p>
-                <p id="reg-success" class="success-msg hidden">Account created! Logging in...</p>
-                <button id="register-btn" class="glow-btn small-btn mt-20" style="width: 100%;">SIGN UP</button>
-                <button id="go-to-login" class="link-btn mt-20">Already have an account? Login</button>
+        <!-- Multiplayer Lobby Screen -->
+        <div id="lobby-screen" class="screen hidden menu-overlay">
+            <div class="entry-panel glass-panel lobby-panel">
+                <h1 class="logo" style="font-size: 2.2rem;">CO-OP LOBBY</h1>
+                <p class="subtitle" id="lobby-status">Not connected</p>
+
+                <div id="lobby-join-controls">
+                    <button id="mp-quick-match-btn" class="glow-btn" style="width: 100%;">QUICK MATCH</button>
+                    <div class="lobby-row mt-20">
+                        <input type="text" id="mp-room-code" class="neon-input" placeholder="Room Code" maxlength="8" style="text-transform: uppercase;">
+                        <button id="mp-join-code-btn" class="glow-btn small-btn">JOIN</button>
+                    </div>
+                </div>
+
+                <div id="lobby-room-view" class="hidden">
+                    <div class="lobby-code-display">ROOM CODE: <span id="lobby-room-code-text">----</span></div>
+                    <div id="lobby-players" class="lobby-players"></div>
+                    <button id="mp-start-btn" class="glow-btn mt-20 hidden" style="width: 100%;">START GAME</button>
+                    <p id="lobby-wait-msg" class="subtitle hidden" style="font-size: 0.8rem; margin: 10px 0 0;">Waiting for host to start…</p>
+                    <button id="mp-leave-btn" class="link-btn mt-20">Leave Room</button>
+                </div>
+
+                <p id="lobby-error" class="error-msg hidden"></p>
+                <button id="lobby-back-btn" class="link-btn mt-20">← Back to Menu</button>
             </div>
         </div>
 
@@ -50,11 +59,22 @@
             <p class="subtitle">Beat the Level 1000 Boss!</p>
             <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;">
                 <button id="start-btn" class="glow-btn">NEW GAME</button>
+                <button id="multiplayer-btn" class="glow-btn" style="background: linear-gradient(45deg, #00cc66, #00ff99); color: black;">CO-OP MULTIPLAYER</button>
                 <button id="load-btn" class="glow-btn" style="background: linear-gradient(45deg, #00f0ff, #00ff88); color: black;">LOAD SAVE</button>
                 <button id="marketplace-btn-start" class="glow-btn" style="background: linear-gradient(45deg, #ffaa00, #ff5500);">MARKETPLACE</button>
                 <button id="skip-100-btn" class="glow-btn" style="background: linear-gradient(45deg, #8800ff, #ff00ff);">SKIP TO LV 100</button>
+                <button id="premium-market-btn" class="glow-btn" style="background: linear-gradient(45deg, #ffd700, #ffaa00); color: black;">⭐ GO PREMIUM</button>
             </div>
             <p id="load-error" class="error-msg hidden mt-20">No save file found</p>
+        </div>
+
+        <!-- Premium Unlock Modal (Razorpay Payment Link) -->
+        <div id="premium-modal" class="glass-panel hidden premium-modal">
+            <button id="premium-modal-close-btn" class="store-close-btn">✕</button>
+            <h3 class="levelup-title" style="color: #ffd700;">⭐ PREMIUM</h3>
+            <p id="premium-modal-text" class="subtitle" style="font-size: 0.85rem; margin: 6px 0 16px;">Unlock premium skins, auras, and the Level 100 skip.</p>
+            <button id="premium-modal-buy-btn" class="glow-btn" style="width: 100%; background: linear-gradient(45deg, #ffaa00, #ffd700); color: #000;">UNLOCK — ₹49</button>
+            <p id="premium-modal-status" class="subtitle hidden" style="font-size: 0.8rem; margin-top: 10px;"></p>
         </div>
 
         <!-- Story Screen -->
@@ -151,6 +171,7 @@
                         <div id="kill-counter" class="kill-counter hidden">⚔️ <span id="kill-count">0</span>/<span id="kill-req">5</span></div>
                     </div>
                     <div class="hud-center">
+                        <div id="mp-connection-badge" class="mp-badge hidden">🟢 CO-OP</div>
                     </div>
                     <div class="hud-right">
                         <button id="save-btn" class="hud-btn">💾</button>
@@ -163,6 +184,9 @@
                     <div id="hero-hp-fill" class="hero-hp-fill"></div>
                     <span id="health-text" class="hero-hp-text">100/100</span>
                 </div>
+
+                <!-- Co-op teammates -->
+                <div id="mp-players-hud" class="mp-players-hud hidden"></div>
 
                 <!-- Level Progress -->
                 <div class="level-bar-container">
@@ -301,5 +325,7 @@
     <script src="cinematic.js"></script>
     <script src="game.js"></script>
     <script src="combat.js"></script>
+    <script src="multiplayer.js"></script>
+    <script src="premium.js"></script>
 </body>
 </html>
